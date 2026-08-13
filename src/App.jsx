@@ -53,44 +53,47 @@ const sweetSpot = (v, lo, hi, margin = 10) => {
 };
 
 const KPI_DEFS = [
-  // id, label, unit, engine, weight-in-engine, calc(form)->value, score(value)
-  { id: 'revenueGrowth', label: 'نمو الإيرادات', unit: '%', engine: 'financial',
+  // id, label, unit, engine, calc(form)->value, score(value), benchmark (healthy industry reference)
+  { id: 'revenueGrowth', label: 'نمو الإيرادات', unit: '%', engine: 'financial', benchmark: 12,
     calc: f => f.previousRevenue > 0 ? ((f.currentRevenue - f.previousRevenue) / f.previousRevenue) * 100 : 0,
     score: v => band(v, [[15,100],[5,80],[0,60],[-10,30]], 10) },
-  { id: 'netMargin', label: 'هامش الربح الصافي', unit: '%', engine: 'financial',
+  { id: 'netMargin', label: 'هامش الربح الصافي', unit: '%', engine: 'financial', benchmark: 12,
     calc: f => f.currentRevenue > 0 ? (f.netProfit / f.currentRevenue) * 100 : 0,
     score: v => band(v, [[15,100],[10,80],[5,60],[0,40]], 10) },
-  { id: 'currentRatio', label: 'نسبة التداول', unit: 'x', engine: 'financial',
+  { id: 'currentRatio', label: 'نسبة التداول', unit: 'x', engine: 'financial', benchmark: 1.8,
     calc: f => f.currentLiabilities > 0 ? f.currentAssets / f.currentLiabilities : 0,
     score: v => band(v, [[2,100],[1.5,80],[1,60],[0.5,30]], 10) },
-  { id: 'quickRatio', label: 'نسبة السيولة السريعة', unit: 'x', engine: 'financial',
+  { id: 'quickRatio', label: 'نسبة السيولة السريعة', unit: 'x', engine: 'financial', benchmark: 1.2,
     calc: f => f.currentLiabilities > 0 ? (f.currentAssets - f.inventoryValue) / f.currentLiabilities : 0,
     score: v => band(v, [[1.5,100],[1,80],[0.7,60],[0.4,30]], 10) },
-  { id: 'debtEquity', label: 'الدين إلى حقوق الملكية', unit: 'x', engine: 'financial',
+  { id: 'debtEquity', label: 'الدين إلى حقوق الملكية', unit: 'x', engine: 'financial', benchmark: 0.8,
     calc: f => f.totalEquity > 0 ? f.totalLiabilities / f.totalEquity : 99,
     score: v => 100 - band(v, [[3,90],[2,70],[1,40],[0.5,20]], 0) },
-  { id: 'inventoryTurnover', label: 'معدل دوران المخزون', unit: 'x', engine: 'operational',
+  { id: 'ebitdaMargin', label: 'هامش EBITDA', unit: '%', engine: 'financial', benchmark: 18,
+    calc: f => f.currentRevenue > 0 ? (f.ebitda / f.currentRevenue) * 100 : 0,
+    score: v => band(v, [[20,100],[12,80],[6,60],[0,40]], 10) },
+  { id: 'inventoryTurnover', label: 'معدل دوران المخزون', unit: 'x', engine: 'operational', benchmark: 7,
     calc: f => f.avgInventoryValue > 0 ? f.cogs / f.avgInventoryValue : 0,
     score: v => band(v, [[8,100],[6,80],[4,60],[2,30]], 10) },
-  { id: 'onTimeFulfillment', label: 'التسليم في الوقت المحدد', unit: '%', engine: 'operational',
+  { id: 'onTimeFulfillment', label: 'التسليم في الوقت المحدد', unit: '%', engine: 'operational', benchmark: 92,
     calc: f => f.onTimeFulfillmentPct,
     score: v => band(v, [[95,100],[90,80],[80,60],[70,30]], 10) },
-  { id: 'capacityUtilization', label: 'استغلال الطاقة التشغيلية', unit: '%', engine: 'operational',
+  { id: 'capacityUtilization', label: 'استغلال الطاقة التشغيلية', unit: '%', engine: 'operational', benchmark: 78,
     calc: f => f.capacityUtilizationPct,
     score: v => (v >= 70 && v <= 85) ? 100 : (v >= 60 && v <= 95) ? 70 : 40 },
-  { id: 'retentionRate', label: 'معدل الاحتفاظ بالعملاء', unit: '%', engine: 'commercial',
+  { id: 'retentionRate', label: 'معدل الاحتفاظ بالعملاء', unit: '%', engine: 'commercial', benchmark: 78,
     calc: f => f.retentionRatePct,
     score: v => band(v, [[85,100],[70,80],[50,60],[30,30]], 10) },
-  { id: 'cacToDealRatio', label: 'تكلفة الاكتساب لقيمة الصفقة', unit: 'x', engine: 'commercial',
+  { id: 'cacToDealRatio', label: 'تكلفة الاكتساب لقيمة الصفقة', unit: 'x', engine: 'commercial', benchmark: 0.15,
     calc: f => f.avgDealValue > 0 ? f.cac / f.avgDealValue : 1,
     score: v => 100 - band(v, [[0.5,90],[0.35,70],[0.2,40],[0.1,20]], 0) },
-  { id: 'conversionRate', label: 'معدل التحويل الرقمي', unit: '%', engine: 'digital',
+  { id: 'conversionRate', label: 'معدل التحويل الرقمي', unit: '%', engine: 'digital', benchmark: 2.2,
     calc: f => f.conversionRatePct,
     score: v => band(v, [[3,100],[2,80],[1,60],[0.5,30]], 10) },
-  { id: 'cartAbandonment', label: 'التخلي عن سلة الشراء', unit: '%', engine: 'digital',
+  { id: 'cartAbandonment', label: 'التخلي عن سلة الشراء', unit: '%', engine: 'digital', benchmark: 68,
     calc: f => f.cartAbandonmentPct,
     score: v => 100 - band(v, [[85,90],[75,70],[65,40],[50,15]], 0) },
-  { id: 'ltvCacRatio', label: 'القيمة الدائمة إلى تكلفة الاكتساب', unit: 'x', engine: 'digital',
+  { id: 'ltvCacRatio', label: 'القيمة الدائمة إلى تكلفة الاكتساب', unit: 'x', engine: 'digital', benchmark: 2.5,
     calc: f => f.digitalCac > 0 ? f.ltv / f.digitalCac : 0,
     score: v => band(v, [[3,100],[2,80],[1,60],[0.5,30]], 10) },
 ];
@@ -110,80 +113,92 @@ const SECTOR_WEIGHT = 0.20;
 // Each def doubles as: (1) an intake field (id/label/unit) and (2) a scored KPI with its own recommendation text.
 const SECTOR_KPI_DEFS = {
   'تجزئة': [
-    { id: 'salesPerSqm', label: 'المبيعات لكل متر مربع', unit: '﷼',
+    { id: 'salesPerSqm', label: 'المبيعات لكل متر مربع', unit: '﷼', benchmark: 2200,
       calc: f => f.salesPerSqm, score: v => band(v, [[3000,100],[2000,80],[1000,60],[500,30]], 10),
       recTitle: 'رفع إنتاجية المساحة البيعية', recDesc: 'المبيعات لكل متر مربع أقل من المعدل المستهدف. يوصى بمراجعة تخطيط المعروضات والتشكيلة السلعية.' },
-    { id: 'shrinkagePct', label: 'نسبة الفاقد والتالف', unit: '%',
+    { id: 'shrinkagePct', label: 'نسبة الفاقد والتالف', unit: '%', benchmark: 1.5,
       calc: f => f.shrinkagePct, score: v => bandLower(v, [[1,100],[2,80],[3,60],[5,30]], 10),
       recTitle: 'خفض نسبة الفاقد والتالف', recDesc: 'نسبة الفاقد مرتفعة عن المعدل المقبول. يوصى بتعزيز إجراءات الجرد والرقابة على المخزون.' },
   ],
   'تصنيع': [
-    { id: 'oeePct', label: 'فعالية المعدات الشاملة (OEE)', unit: '%',
+    { id: 'oeePct', label: 'فعالية المعدات الشاملة (OEE)', unit: '%', benchmark: 78,
       calc: f => f.oeePct, score: v => band(v, [[85,100],[75,80],[65,60],[50,30]], 10),
       recTitle: 'رفع فعالية خطوط الإنتاج', recDesc: 'فعالية المعدات الشاملة دون المستوى المستهدف. يوصى بمراجعة التوقفات غير المخطَّطة والصيانة الوقائية والجودة.' },
-    { id: 'scrapRatePct', label: 'نسبة الهالك والتلف', unit: '%',
+    { id: 'scrapRatePct', label: 'نسبة الهالك والتلف', unit: '%', benchmark: 3,
       calc: f => f.scrapRatePct, score: v => bandLower(v, [[2,100],[4,80],[7,60],[12,30]], 10),
       recTitle: 'خفض نسبة الهالك والتلف', recDesc: 'نسبة الهالك مرتفعة. يوصى بمراجعة جودة المدخلات وضبط معايير التصنيع.' },
   ],
   'خدمات مهنية': [
-    { id: 'billableUtilizationPct', label: 'نسبة الساعات القابلة للفوترة', unit: '%',
+    { id: 'billableUtilizationPct', label: 'نسبة الساعات القابلة للفوترة', unit: '%', benchmark: 70,
       calc: f => f.billableUtilizationPct, score: v => band(v, [[75,100],[65,80],[55,60],[40,30]], 10),
       recTitle: 'رفع نسبة الساعات القابلة للفوترة', recDesc: 'استغلال الطاقة الاستشارية دون المستهدف. يوصى بمراجعة تخصيص الموارد وتحميل المشاريع.' },
-    { id: 'avgProjectMarginPct', label: 'متوسط هامش المشروع', unit: '%',
+    { id: 'avgProjectMarginPct', label: 'متوسط هامش المشروع', unit: '%', benchmark: 15,
       calc: f => f.avgProjectMarginPct, score: v => band(v, [[20,100],[12,80],[6,60],[0,40]], 10),
       recTitle: 'تحسين هامش ربحية المشاريع', recDesc: 'هامش المشاريع ضعيف. يوصى بمراجعة أسلوب التسعير وتقدير التكاليف قبل التعاقد.' },
   ],
   'مطاعم وضيافة': [
-    { id: 'foodCostPct', label: 'نسبة تكلفة الأصناف (Food Cost)', unit: '%',
+    { id: 'foodCostPct', label: 'نسبة تكلفة الأصناف (Food Cost)', unit: '%', benchmark: 32,
       calc: f => f.foodCostPct, score: v => bandLower(v, [[30,100],[35,80],[40,60],[45,30]], 10),
       recTitle: 'ضبط نسبة تكلفة الأصناف', recDesc: 'نسبة تكلفة الأصناف مرتفعة عن المعدل المستهدف. يوصى بمراجعة الوصفات والموردين ومراقبة الهدر.' },
-    { id: 'tableTurnoverRate', label: 'معدل دوران الطاولات (مرات/يوم)', unit: 'x',
+    { id: 'tableTurnoverRate', label: 'معدل دوران الطاولات (مرات/يوم)', unit: 'x', benchmark: 2.3,
       calc: f => f.tableTurnoverRate, score: v => band(v, [[3,100],[2,80],[1.5,60],[1,30]], 10),
       recTitle: 'رفع معدل دوران الطاولات', recDesc: 'معدل دوران الطاولات منخفض. يوصى بمراجعة سرعة الخدمة وسياسة الحجوزات.' },
   ],
   'بناء وتشييد': [
-    { id: 'costOverrunPct', label: 'نسبة تجاوز الميزانية', unit: '%',
+    { id: 'costOverrunPct', label: 'نسبة تجاوز الميزانية', unit: '%', benchmark: 3,
       calc: f => f.costOverrunPct, score: v => bandLower(v, [[0,100],[5,80],[10,60],[20,30]], 10),
       recTitle: 'ضبط تجاوز ميزانية المشاريع', recDesc: 'تجاوز واضح للميزانية المخطَّطة. يوصى بتعزيز الرقابة على التكاليف وإدارة أوامر التغيير.' },
-    { id: 'scheduleDelayPct', label: 'نسبة التأخر عن الجدول الزمني', unit: '%',
+    { id: 'scheduleDelayPct', label: 'نسبة التأخر عن الجدول الزمني', unit: '%', benchmark: 3,
       calc: f => f.scheduleDelayPct, score: v => bandLower(v, [[0,100],[5,80],[10,60],[20,30]], 10),
       recTitle: 'معالجة التأخر عن الجدول الزمني', recDesc: 'تأخر ملحوظ عن الجدول الزمني للمشاريع. يوصى بمراجعة تخطيط الموارد والمسار الحرج.' },
   ],
   'تعليم': [
-    { id: 'enrollmentRetentionPct', label: 'معدل بقاء الطلاب', unit: '%',
+    { id: 'enrollmentRetentionPct', label: 'معدل بقاء الطلاب', unit: '%', benchmark: 85,
       calc: f => f.enrollmentRetentionPct, score: v => band(v, [[90,100],[80,80],[65,60],[50,30]], 10),
       recTitle: 'تحسين معدل بقاء الطلاب', recDesc: 'معدل بقاء الطلاب دون المستهدف. يوصى بمراجعة الدعم الأكاديمي وتجربة الطالب.' },
-    { id: 'seatUtilizationPct', label: 'نسبة إشغال المقاعد الدراسية', unit: '%',
+    { id: 'seatUtilizationPct', label: 'نسبة إشغال المقاعد الدراسية', unit: '%', benchmark: 80,
       calc: f => f.seatUtilizationPct, score: v => sweetSpot(v, 70, 90, 15),
       recTitle: 'تحسين إشغال المقاعد الدراسية', recDesc: 'نسبة إشغال المقاعد خارج النطاق الأمثل. يوصى بمراجعة خطة القبول أو السعة الاستيعابية.' },
   ],
   'رعاية صحية': [
-    { id: 'bedOccupancyPct', label: 'نسبة إشغال الأسرّة', unit: '%',
+    { id: 'bedOccupancyPct', label: 'نسبة إشغال الأسرّة', unit: '%', benchmark: 80,
       calc: f => f.bedOccupancyPct, score: v => sweetSpot(v, 75, 85, 12),
       recTitle: 'تحسين إدارة إشغال الأسرّة', recDesc: 'نسبة إشغال الأسرّة خارج النطاق الأمثل. يوصى بمراجعة تخطيط السعة والتنسيق بين الأقسام.' },
-    { id: 'patientWaitTimeMin', label: 'متوسط وقت انتظار المريض', unit: 'دقيقة',
+    { id: 'patientWaitTimeMin', label: 'متوسط وقت انتظار المريض', unit: 'دقيقة', benchmark: 20,
       calc: f => f.patientWaitTimeMin, score: v => bandLower(v, [[15,100],[30,80],[45,60],[60,30]], 10),
       recTitle: 'تقليص وقت انتظار المريض', recDesc: 'متوسط وقت الانتظار مرتفع. يوصى بمراجعة مسار المريض وجدولة العيادات.' },
   ],
   'تجارة جملة': [
-    { id: 'orderFillRatePct', label: 'معدل تلبية الطلبات بالكامل', unit: '%',
+    { id: 'orderFillRatePct', label: 'معدل تلبية الطلبات بالكامل', unit: '%', benchmark: 93,
       calc: f => f.orderFillRatePct, score: v => band(v, [[95,100],[90,80],[80,60],[70,30]], 10),
       recTitle: 'رفع معدل تلبية الطلبات', recDesc: 'معدل تلبية الطلبات بالكامل دون المستهدف. يوصى بمراجعة إدارة المخزون والتنسيق مع الموردين.' },
-    { id: 'avgOrderCycleDays', label: 'متوسط دورة تنفيذ الطلب (أيام)', unit: 'يوم',
+    { id: 'avgOrderCycleDays', label: 'متوسط دورة تنفيذ الطلب (أيام)', unit: 'يوم', benchmark: 3,
       calc: f => f.avgOrderCycleDays, score: v => bandLower(v, [[2,100],[4,80],[7,60],[10,30]], 10),
       recTitle: 'تقصير دورة تنفيذ الطلب', recDesc: 'دورة تنفيذ الطلب طويلة نسبيًا. يوصى بمراجعة سير العمل بين الاستلام والتنفيذ.' },
   ],
   'لوجستيات': [
-    { id: 'fleetUtilizationPct', label: 'معدل استغلال الأسطول', unit: '%',
+    { id: 'fleetUtilizationPct', label: 'معدل استغلال الأسطول', unit: '%', benchmark: 77,
       calc: f => f.fleetUtilizationPct, score: v => sweetSpot(v, 70, 85, 15),
       recTitle: 'تحسين استغلال الأسطول', recDesc: 'استغلال الأسطول خارج النطاق الأمثل. يوصى بمراجعة جدولة الرحلات وخطط الصيانة.' },
-    { id: 'deliveryOnTimePct', label: 'نسبة التسليم في الوقت المحدد', unit: '%',
+    { id: 'deliveryOnTimePct', label: 'نسبة التسليم في الوقت المحدد', unit: '%', benchmark: 93,
       calc: f => f.deliveryOnTimePct, score: v => band(v, [[95,100],[90,80],[80,60],[70,30]], 10),
       recTitle: 'رفع نسبة التسليم في الوقت المحدد', recDesc: 'نسبة التسليم في الوقت المحدد دون المستهدف. يوصى بمراجعة التخطيط اللوجستي ومسارات التوزيع.' },
   ],
 };
 
+// Root-cause categorization (adapted 6M / Ishikawa framework) — maps each diagnostic
+// engine to the category its weaknesses most plausibly stem from, for the fishbone section.
+const FISHBONE_CATEGORY = {
+  financial:    { label: 'الطريقة والسياسات المالية', sub: 'Method' },
+  operational:  { label: 'الأنظمة والعمليات', sub: 'Machine / Method' },
+  commercial:   { label: 'السوق والعملاء', sub: 'Environment' },
+  digital:      { label: 'الأنظمة والتقنية', sub: 'Machine' },
+  sector:       { label: 'خصوصية القطاع والمواد', sub: 'Material' },
+  management:   { label: 'الإدارة والقيادة', sub: 'Man' },
+};
+
 const RECS = {
+  ebitdaMargin:         { title: 'تحسين هامش EBITDA', desc: 'هامش الأرباح قبل الفوائد والضرائب والإهلاك أقل من المستوى الصحي. يوصى بمراجعة الكفاءة التشغيلية وبنية التكاليف الثابتة.' },
   revenueGrowth:      { title: 'تنشيط محركات النمو التجاري', desc: 'نمو الإيرادات ضعيف أو سالب. يوصى بمراجعة استراتيجية التسعير، توسيع قنوات المبيعات، وتقييم فرص أسواق جديدة.' },
   netMargin:           { title: 'تحسين هامش الربح الصافي', desc: 'هامش الربح دون المستوى الصحي. يوصى بمراجعة هيكل التكاليف التشغيلية والتسعير ورفع الكفاءة التشغيلية.' },
   currentRatio:         { title: 'معالجة مخاطر السيولة قصيرة الأجل', desc: 'نسبة التداول تشير لضغط على السيولة. يوصى بإعادة جدولة الالتزامات القصيرة وتسريع دورة التحصيل.' },
@@ -198,6 +213,45 @@ const RECS = {
   cartAbandonment:      { title: 'معالجة تسرب سلة الشراء', desc: 'نسبة التخلي عن سلة الشراء مرتفعة. يوصى بتبسيط إجراءات الدفع وإعادة استهداف العملاء.' },
   ltvCacRatio:          { title: 'تحسين العائد على استثمار اكتساب العملاء', desc: 'نسبة القيمة الدائمة للعميل إلى تكلفة الاكتساب ضعيفة. يوصى بمراجعة استراتيجية الاستهداف والاحتفاظ.' },
 };
+
+// Converts a raw form (string inputs) into numeric values for every numeric field.
+function toNumericForm(form) {
+  const f = { ...form };
+  NUMERIC_KEYS.forEach(k => { f[k] = Number(f[k]) || 0; });
+  return f;
+}
+
+// Builds the full P&L waterfall and balance sheet from granular line items, and merges
+// the resulting aggregates (netProfit, currentAssets, totalEquity, etc.) back in under the
+// SAME field names the KPI engine already expects — so computeDiagnostics/KPI_DEFS never
+// need to know these values are now computed rather than directly entered.
+function deriveFinancials(f) {
+  const grossProfit = f.currentRevenue - f.cogs;
+  const operatingExpenses = f.sellingExpenses + f.adminExpenses;
+  const ebitda = grossProfit - operatingExpenses;
+  const ebit = ebitda - f.depreciationAmortization;
+  const ebt = ebit - f.interestExpense;
+  const netProfit = ebt - f.taxExpense;
+
+  const currentAssets = f.cashAndEquivalents + f.accountsReceivable + f.inventoryValue + f.otherCurrentAssets;
+  const nonCurrentAssets = f.ppeNet + f.otherNonCurrentAssets;
+  const totalAssets = currentAssets + nonCurrentAssets;
+
+  const currentLiabilities = f.accountsPayable + f.shortTermDebt + f.otherCurrentLiabilities;
+  const nonCurrentLiabilities = f.longTermDebt + f.otherNonCurrentLiabilities;
+  const totalLiabilities = currentLiabilities + nonCurrentLiabilities;
+
+  const totalEquity = f.paidInCapital + f.retainedEarnings + f.otherEquity;
+  const balanceCheck = totalAssets - (totalLiabilities + totalEquity);
+
+  return {
+    ...f,
+    grossProfit, operatingExpenses, ebitda, ebit, ebt, netProfit,
+    currentAssets, nonCurrentAssets, totalAssets,
+    currentLiabilities, nonCurrentLiabilities, totalLiabilities,
+    totalEquity, balanceCheck,
+  };
+}
 
 function computeDiagnostics(f, sectorName) {
   const sectorDefs = (SECTOR_KPI_DEFS[sectorName] || []).map(d => ({ ...d, engine: 'sector' }));
@@ -251,13 +305,67 @@ function computeDiagnostics(f, sectorName) {
     })
     .sort((a, b) => a.score - b.score);
 
-  const engineList = engineKeys.map(eng => ({
+  const managementMaturity = computeManagementMaturity(f);
+  const rootCauseGroups = buildRootCauseAnalysis(kpis);
+  const scenarios = buildScenarios(f, healthScore, kpis);
+
+  // IMPORTANT: engineKeys is plain strings only (JSON-safe for Supabase storage).
+  // The icon-carrying display list is derived on the client from ENGINE_META at render time —
+  // never store React component references inside data that gets JSON.stringify'd to the DB.
+  return { kpis, engineScores, healthScore, riskBand, recommendations, engineKeys, managementMaturity, rootCauseGroups, scenarios };
+}
+
+// Management/leadership readiness — scored separately from the four quantitative engines
+// (kept informational rather than folded into the weighted health score, since 1–5 self-rated
+// qualitative inputs shouldn't silently move a numbers-driven composite score).
+function computeManagementMaturity(f) {
+  const raw = [
+    { key: 'mgmtVisionClarity', label: 'وضوح الرؤية الاستراتيجية' },
+    { key: 'mgmtInfoSystems', label: 'جودة نظم المعلومات الإدارية' },
+    { key: 'mgmtLeadershipStrength', label: 'قوة الفريق القيادي' },
+    { key: 'mgmtGovernanceQuality', label: 'جودة الحوكمة الداخلية' },
+  ].map(d => ({ ...d, value: Math.max(0, Math.min(5, Number(f[d.key]) || 0)) }));
+  const avg = raw.reduce((s, d) => s + d.value, 0) / raw.length;
+  return { score: Math.round((avg / 5) * 100), details: raw };
+}
+
+// Groups weak KPIs (score < 60) by root-cause category (adapted 6M / fishbone framework).
+function buildRootCauseAnalysis(kpis) {
+  const groups = {};
+  kpis.filter(k => k.score < 60).forEach(k => {
+    const cat = FISHBONE_CATEGORY[k.engine] || { label: 'أخرى', sub: '' };
+    if (!groups[cat.label]) groups[cat.label] = { label: cat.label, sub: cat.sub, items: [] };
+    groups[cat.label].items.push({ label: k.label, score: k.score });
+  });
+  return Object.values(groups).sort((a, b) => b.items.length - a.items.length);
+}
+
+// Simple indicative 12-month scenario bands (best / expected / worst) built off the
+// observed revenue-growth KPI and current health score — for directional planning only.
+function buildScenarios(f, healthScore, kpis) {
+  const currentRevenue = Number(f.currentRevenue) || 0;
+  const growthKpi = kpis.find(k => k.id === 'revenueGrowth');
+  const baseGrowth = growthKpi ? growthKpi.value : 0;
+  const project = (g) => Math.round(currentRevenue * (1 + g / 100));
+  return {
+    best:     { label: 'أفضل حالة', growth: baseGrowth + 8,  revenue: project(baseGrowth + 8),  healthScore: Math.min(100, healthScore + 10) },
+    expected: { label: 'الحالة المتوقعة', growth: baseGrowth,      revenue: project(baseGrowth),      healthScore: healthScore },
+    worst:    { label: 'أسوأ حالة', growth: baseGrowth - 10, revenue: project(baseGrowth - 10), healthScore: Math.max(0, healthScore - 15) },
+  };
+}
+
+// Derives the display list (icons/colors/labels) fresh from the static ENGINE_META —
+// always call this at render/export time instead of trusting a stored engineList.
+// Backward-compatible with cases saved before this fix (old rows may have a broken
+// engineList with missing icons, or may predate engineKeys entirely).
+function buildEngineList(diagnostics, sectorName) {
+  const keys = diagnostics.engineKeys
+    || (diagnostics.engineList ? diagnostics.engineList.map(e => e.key) : Object.keys(diagnostics.engineScores || {}));
+  return keys.map(eng => ({
     key: eng,
     ...ENGINE_META[eng],
     label: eng === 'sector' ? `مؤشرات قطاع ${sectorName}` : ENGINE_META[eng].label,
   }));
-
-  return { kpis, engineScores, healthScore, riskBand, recommendations, engineList };
 }
 
 const fmtNum = (v, unit) => {
@@ -305,6 +413,8 @@ function rtfTableRow(cells, widths, opts = {}) {
 
 function buildReportRTF(record) {
   const { form, diagnostics, certNumber, date } = record;
+  const financials = deriveFinancials(toNumericForm(form));
+  const engineList = buildEngineList(diagnostics, form.sector);
   let b = '';
   b += `{\\rtf1\\ansi\\ansicpg1256\\deff0\\deflang1025\\deflangfe1025\n`;
   b += `{\\fonttbl{\\f0\\fswiss\\fcharset178\\fprq2 Arial;}}\n`;
@@ -328,22 +438,111 @@ function buildReportRTF(record) {
     b += `{\\i\\fs20\\cf3 ${rtfEscape('ملاحظات المستشار: ' + form.notes)}\\par}\n\\par\n`;
   }
 
+  b += `{\\b\\fs26\\cf1 ${rtfEscape('القوائم المالية — قائمة الدخل')}\\par}\n`;
+  b += rtfTableRow(['المبلغ (﷼)', 'البند'], [2200, 4300], { aligns: ['qc', 'qr'], bold: true, colors: [1, 1] });
+  [
+    ['الإيرادات', financials.currentRevenue], ['تكلفة البضاعة المباعة', -financials.cogs],
+    ['إجمالي الربح', financials.grossProfit], ['المصاريف التشغيلية', -financials.operatingExpenses],
+    ['EBITDA', financials.ebitda], ['الإهلاك والاستهلاك', -financials.depreciationAmortization],
+    ['EBIT', financials.ebit], ['المصاريف التمويلية', -financials.interestExpense],
+    ['الزكاة/الضريبة', -financials.taxExpense], ['صافي الربح', financials.netProfit],
+  ].forEach(([label, val]) => {
+    b += rtfTableRow([val.toLocaleString('ar'), label], [2200, 4300], { aligns: ['qc', 'qr'] });
+  });
+  b += `\\pard\\par\n`;
+
+  b += `{\\b\\fs26\\cf1 ${rtfEscape('القوائم المالية — قائمة المركز المالي')}\\par}\n`;
+  b += rtfTableRow(['المبلغ (﷼)', 'البند'], [2200, 4300], { aligns: ['qc', 'qr'], bold: true, colors: [1, 1] });
+  [
+    ['إجمالي الأصول المتداولة', financials.currentAssets], ['إجمالي الأصول غير المتداولة', financials.nonCurrentAssets],
+    ['إجمالي الأصول', financials.totalAssets], ['إجمالي الالتزامات المتداولة', financials.currentLiabilities],
+    ['إجمالي الالتزامات غير المتداولة', financials.nonCurrentLiabilities], ['إجمالي الالتزامات', financials.totalLiabilities],
+    ['إجمالي حقوق الملكية', financials.totalEquity],
+  ].forEach(([label, val]) => {
+    b += rtfTableRow([val.toLocaleString('ar'), label], [2200, 4300], { aligns: ['qc', 'qr'] });
+  });
+  if (Math.abs(financials.balanceCheck) > 1) {
+    b += `{\\fs18\\cf4 ${rtfEscape('⚠ فارق توازن محاسبي: ' + financials.balanceCheck.toLocaleString('ar') + ' ﷼')}\\par}\n`;
+  }
+  b += `\\pard\\par\n`;
+
+  const pestelPairs = [
+    ['سياسية', form.pestelPolitical], ['اقتصادية', form.pestelEconomic], ['اجتماعية', form.pestelSocial],
+    ['تقنية', form.pestelTechnological], ['بيئية', form.pestelEnvironmental], ['نظامية/قانونية', form.pestelLegal],
+  ].filter(([, v]) => v);
+  if (pestelPairs.length) {
+    b += `{\\b\\fs26\\cf1 ${rtfEscape('السياق الاستراتيجي — تحليل PESTEL')}\\par}\n`;
+    pestelPairs.forEach(([label, val]) => {
+      b += `{\\b\\fs20\\cf2 ${rtfEscape(label + ': ')}}{\\fs20\\cf1 ${rtfEscape(val)}\\par}\n`;
+    });
+    b += `\\par\n`;
+  }
+
+  const swotPairs = [
+    ['نقاط القوة', form.swotStrengths], ['نقاط الضعف', form.swotWeaknesses],
+    ['الفرص', form.swotOpportunities], ['التهديدات', form.swotThreats],
+  ].filter(([, v]) => v);
+  if (swotPairs.length) {
+    b += `{\\b\\fs26\\cf1 ${rtfEscape('تحليل SWOT')}\\par}\n`;
+    swotPairs.forEach(([label, val]) => {
+      b += `{\\b\\fs20\\cf2 ${rtfEscape(label)}\\par}\n`;
+      val.split('\n').filter(Boolean).forEach(line => {
+        b += `{\\fs19\\cf1 ${rtfEscape('•  ' + line)}\\par}\n`;
+      });
+    });
+    if (form.competitivePosition || form.mainCompetitors || form.competitiveAdvantage) {
+      b += `\\par\n`;
+      if (form.competitivePosition) b += `{\\b\\fs19\\cf2 ${rtfEscape('الموقع التنافسي: ')}}{\\fs19\\cf1 ${rtfEscape(form.competitivePosition)}\\par}\n`;
+      if (form.mainCompetitors) b += `{\\b\\fs19\\cf2 ${rtfEscape('أبرز المنافسين: ')}}{\\fs19\\cf1 ${rtfEscape(form.mainCompetitors)}\\par}\n`;
+      if (form.competitiveAdvantage) b += `{\\b\\fs19\\cf2 ${rtfEscape('الميزة التنافسية: ')}}{\\fs19\\cf1 ${rtfEscape(form.competitiveAdvantage)}\\par}\n`;
+    }
+    b += `\\par\n`;
+  }
+
   b += `{\\b\\fs26\\cf1 ${rtfEscape('نتائج محركات التشخيص')}\\par}\n`;
   b += rtfTableRow(['النتيجة', 'المحرك'], [1500, 5000], { aligns: ['qc', 'qr'], bold: true, colors: [1, 1] });
-  diagnostics.engineList.forEach(meta => {
+  engineList.forEach(meta => {
     b += rtfTableRow([String(Math.round(diagnostics.engineScores[meta.key])), meta.label], [1500, 5000], { aligns: ['qc', 'qr'] });
   });
   b += `\\pard\\par\n\\par\n`;
 
   b += `{\\b\\fs26\\cf1 ${rtfEscape('تفصيل المؤشرات')}\\par}\n`;
-  diagnostics.engineList.forEach(meta => {
+  engineList.forEach(meta => {
     b += `{\\b\\fs22\\cf2 ${rtfEscape(meta.label)}\\par}\n`;
-    b += rtfTableRow(['النتيجة', 'القيمة', 'المؤشر'], [1200, 1500, 4200], { aligns: ['qc', 'qc', 'qr'], bold: true, colors: [1, 1, 1] });
+    b += rtfTableRow(['النتيجة', 'معيار القطاع', 'القيمة', 'المؤشر'], [1000, 1200, 1200, 3500], { aligns: ['qc', 'qc', 'qc', 'qr'], bold: true, colors: [1, 1, 1, 1] });
     diagnostics.kpis.filter(k => k.engine === meta.key).forEach(k => {
-      b += rtfTableRow([String(k.score), fmtNum(k.value, k.unit), k.label], [1200, 1500, 4200], { aligns: ['qc', 'qc', 'qr'] });
+      const bench = k.benchmark !== undefined ? fmtNum(k.benchmark, k.unit) : '—';
+      b += rtfTableRow([String(k.score), bench, fmtNum(k.value, k.unit), k.label], [1000, 1200, 1200, 3500], { aligns: ['qc', 'qc', 'qc', 'qr'] });
     });
     b += `\\pard\\par\n`;
   });
+
+  if (diagnostics.managementMaturity) {
+    b += `{\\b\\fs26\\cf1 ${rtfEscape('نضج الإدارة والقيادة (تقييم ذاتي)')}\\par}\n`;
+    b += `{\\fs20\\cf1 ${rtfEscape('مؤشر الاستعداد الإداري: ' + diagnostics.managementMaturity.score + ' / 100')}\\par}\n`;
+    diagnostics.managementMaturity.details.forEach(d => {
+      b += `{\\fs19\\cf3 ${rtfEscape(`${d.label}: ${d.value}/5`)}\\par}\n`;
+    });
+    b += `\\par\n`;
+  }
+
+  if (diagnostics.rootCauseGroups && diagnostics.rootCauseGroups.length) {
+    b += `{\\b\\fs26\\cf1 ${rtfEscape('تحليل الجذور — إطار عظم السمكة المعدَّل (6M)')}\\par}\n`;
+    diagnostics.rootCauseGroups.forEach(g => {
+      b += `{\\b\\fs20\\cf2 ${rtfEscape(g.label)}\\par}\n`;
+      g.items.forEach(it => { b += `{\\fs19\\cf1 ${rtfEscape('•  ' + it.label + ' (النتيجة: ' + it.score + ')')}\\par}\n`; });
+    });
+    b += `\\par\n`;
+  }
+
+  if (diagnostics.scenarios) {
+    b += `{\\b\\fs26\\cf1 ${rtfEscape('تحليل السيناريوهات (أفق 12 شهرًا)')}\\par}\n`;
+    [diagnostics.scenarios.worst, diagnostics.scenarios.expected, diagnostics.scenarios.best].forEach(s => {
+      b += `{\\b\\fs20\\cf2 ${rtfEscape(s.label)}\\par}\n`;
+      b += `{\\fs19\\cf1 ${rtfEscape(`نمو الإيرادات: ${Math.round(s.growth*10)/10}%   |   الإيراد المتوقع: ${s.revenue.toLocaleString('ar')} ﷼   |   مؤشر الصحة: ${s.healthScore}/100`)}\\par}\n`;
+    });
+    b += `\\par\n`;
+  }
 
   b += `{\\b\\fs26\\cf1 ${rtfEscape(`التوصيات ذات الأولوية (${diagnostics.recommendations.length})`)}\\par}\n`;
   if (diagnostics.recommendations.length === 0) {
@@ -439,7 +638,7 @@ async function fetchProfile(accessToken, userId) {
   return rows[0] || null;
 }
 
-/* ---- Session persistence (real browser localStorage — this is a standalone deployed app) ---- */
+/* ---- Session persistence (personal, per-browser artifact storage — NOT localStorage) ---- */
 const SESSION_KEY = 'vantage_session_v1';
 async function saveSession(session) {
   try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch {}
@@ -526,6 +725,39 @@ function Gauge({ score, color, size = 168 }) {
   );
 }
 
+function FishboneDiagram({ groups, riskLabel }) {
+  const width = 760, height = 320, spineY = 160;
+  const spineStart = 50, spineEnd = 640;
+  const n = groups.length;
+  const usable = spineEnd - spineStart - 60;
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: 760 }}>
+      {/* spine */}
+      <line x1={spineStart} y1={spineY} x2={spineEnd} y2={spineY} stroke={C.ink} strokeWidth="2.5" />
+      <polygon points={`${spineEnd},${spineY-8} ${spineEnd+22},${spineY} ${spineEnd},${spineY+8}`} fill={C.ink} />
+      <rect x={spineEnd + 24} y={spineY - 24} width={90} height={48} rx={8} fill={C.brick} opacity="0.1" stroke={C.brick} />
+      <text x={spineEnd + 69} y={spineY - 4} textAnchor="middle" fontSize="10.5" fontWeight="700" fill={C.brick} fontFamily="'IBM Plex Sans Arabic'">النتيجة</text>
+      <text x={spineEnd + 69} y={spineY + 12} textAnchor="middle" fontSize="9.5" fill={C.brick} fontFamily="'IBM Plex Sans Arabic'">{riskLabel}</text>
+
+      {groups.map((g, i) => {
+        const top = i % 2 === 0;
+        const x = spineStart + 50 + (usable / Math.max(1, n - 1 || 1)) * i;
+        const boneY = top ? spineY - 70 : spineY + 70;
+        const boneX = x - 45;
+        return (
+          <g key={g.label}>
+            <line x1={x} y1={spineY} x2={boneX} y2={boneY} stroke={C.brass} strokeWidth="2" />
+            <text x={boneX} y={top ? boneY - 10 : boneY + 18} textAnchor="middle" fontSize="11" fontWeight="700" fill={C.ink} fontFamily="'Noto Kufi Arabic'">{g.label}</text>
+            {g.items.slice(0, 3).map((it, j) => (
+              <text key={j} x={boneX} y={(top ? boneY - 24 : boneY + 32) + (top ? -j*13 : j*13)} textAnchor="middle" fontSize="9" fill={C.steel} fontFamily="'IBM Plex Sans Arabic'">{it.label}</text>
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function CertSeal({ score, riskBand, consultant, certNumber, date, compact = false }) {
   const size = compact ? 84 : 172;
   const StatusIcon = riskBand.key === 'critical' ? AlertTriangle : riskBand.key === 'attention' ? Clock : CheckCircle2;
@@ -598,6 +830,57 @@ function SelectField({ label, value, onChange, options, span }) {
   );
 }
 
+function TextAreaField({ label, value, onChange, placeholder, span, rows = 3 }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, gridColumn: span ? `span ${span}` : undefined }}>
+      <span style={{ fontSize: 13, color: C.steel, fontWeight: 500 }}>{label}</span>
+      <textarea
+        rows={rows} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        style={{
+          border: `1.5px solid ${C.line}`, borderRadius: 10, padding: '10px 12px', fontSize: 14,
+          fontFamily: "'IBM Plex Sans Arabic'", background: C.card, color: C.ink, outline: 'none', resize: 'vertical',
+        }}
+      />
+    </label>
+  );
+}
+
+function RatingField({ label, value, onChange, span }) {
+  const n = Number(value) || 0;
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, gridColumn: span ? `span ${span}` : undefined }}>
+      <span style={{ fontSize: 13, color: C.steel, fontWeight: 500 }}>{label}</span>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {[1, 2, 3, 4, 5].map(i => (
+          <button key={i} type="button" onClick={() => onChange(String(i))}
+            style={{
+              flex: 1, height: 38, borderRadius: 9, border: `1.5px solid ${i <= n ? C.brass : C.line}`,
+              background: i <= n ? C.brass : C.card, color: i <= n ? C.ink : C.steel, fontWeight: 700, fontSize: 13,
+              cursor: 'pointer', fontFamily: "'IBM Plex Sans Arabic'",
+            }}>
+            {i}
+          </button>
+        ))}
+      </div>
+    </label>
+  );
+}
+
+function ComputedField({ label, value, unit = '﷼', warn }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={{ fontSize: 13, color: C.steel, fontWeight: 500 }}>{label}</span>
+      <div style={{
+        border: `1.5px dashed ${warn ? C.brick : C.brass}`, borderRadius: 10, padding: '10px 12px', fontSize: 14,
+        fontFamily: "'IBM Plex Sans Arabic'", background: warn ? `${C.brick}0D` : `${C.brass}0D`,
+        color: warn ? C.brick : C.ink, fontWeight: 700,
+      }}>
+        {typeof value === 'number' ? value.toLocaleString('ar') : value}{unit ? ` ${unit}` : ''}
+      </div>
+    </div>
+  );
+}
+
 function SectionCard({ icon: Icon, title, subtitle, children, accent = C.ink }) {
   return (
     <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.line}`, padding: 24, marginBottom: 20 }}>
@@ -626,17 +909,36 @@ const emptyForm = (defaultConsultant) => {
   const base = {
     companyName: '', sector: '', businessType: '', contactPerson: '', contactPhone: '',
     consultant: defaultConsultant || 'الأستاذ محمد العويني', notes: '',
-    currentRevenue: '', previousRevenue: '', netProfit: '', grossProfit: '',
-    currentAssets: '', currentLiabilities: '', inventoryValue: '', totalLiabilities: '', totalEquity: '',
-    cogs: '', avgInventoryValue: '', onTimeFulfillmentPct: '', capacityUtilizationPct: '',
+    // Income statement (full P&L waterfall) — netProfit/grossProfit/ebitda are computed, not entered
+    currentRevenue: '', previousRevenue: '', cogs: '',
+    sellingExpenses: '', adminExpenses: '', depreciationAmortization: '', interestExpense: '', taxExpense: '',
+    // Balance sheet — currentAssets/currentLiabilities/totalLiabilities/totalEquity are computed, not entered
+    cashAndEquivalents: '', accountsReceivable: '', inventoryValue: '', otherCurrentAssets: '',
+    ppeNet: '', otherNonCurrentAssets: '',
+    accountsPayable: '', shortTermDebt: '', otherCurrentLiabilities: '',
+    longTermDebt: '', otherNonCurrentLiabilities: '',
+    paidInCapital: '', retainedEarnings: '', otherEquity: '',
+    avgInventoryValue: '', onTimeFulfillmentPct: '', capacityUtilizationPct: '',
     retentionRatePct: '', cac: '', avgDealValue: '',
     conversionRatePct: '', cartAbandonmentPct: '', digitalCac: '', ltv: '',
+    // Strategic & qualitative diagnostic module
+    swotStrengths: '', swotWeaknesses: '', swotOpportunities: '', swotThreats: '',
+    pestelPolitical: '', pestelEconomic: '', pestelSocial: '', pestelTechnological: '', pestelEnvironmental: '', pestelLegal: '',
+    mainCompetitors: '', competitivePosition: '', competitiveAdvantage: '',
+    mgmtVisionClarity: '', mgmtInfoSystems: '', mgmtLeadershipStrength: '', mgmtGovernanceQuality: '',
   };
   ALL_SECTOR_FIELD_IDS.forEach(id => { base[id] = ''; });
   return base;
 };
 
-const NUMERIC_KEYS = Object.keys(emptyForm()).filter(k => !['companyName','sector','businessType','contactPerson','contactPhone','consultant','notes'].includes(k));
+const TEXT_FIELD_KEYS = [
+  'companyName', 'sector', 'businessType', 'contactPerson', 'contactPhone', 'consultant', 'notes',
+  'swotStrengths', 'swotWeaknesses', 'swotOpportunities', 'swotThreats',
+  'pestelPolitical', 'pestelEconomic', 'pestelSocial', 'pestelTechnological', 'pestelEnvironmental', 'pestelLegal',
+  'mainCompetitors', 'competitivePosition', 'competitiveAdvantage',
+];
+
+const NUMERIC_KEYS = Object.keys(emptyForm()).filter(k => !TEXT_FIELD_KEYS.includes(k));
 
 /* =========================================================================
    Intake Wizard
@@ -647,16 +949,13 @@ function IntakeWizard({ onCancel, onSubmit, saving, defaultConsultant }) {
   const set = (k) => (v) => setForm(prev => ({ ...prev, [k]: v }));
 
   const sectorDefs = SECTOR_KPI_DEFS[form.sector] || [];
-  const steps = ['بيانات الشركة', 'البيانات المالية', 'البيانات التشغيلية', 'البيانات التجارية', 'البيانات الرقمية',
+  const steps = ['بيانات الشركة', 'قائمة الدخل', 'قائمة المركز المالي', 'البيانات التشغيلية', 'البيانات التجارية', 'البيانات الرقمية',
+    'SWOT وPESTEL', 'الموقع التنافسي ونضج الإدارة',
     ...(sectorDefs.length ? [`مؤشرات ${form.sector}`] : []), 'المراجعة والإرسال'];
-  const sectorStepIndex = sectorDefs.length ? 5 : -1;
+  const sectorStepIndex = sectorDefs.length ? 8 : -1;
   const reviewStepIndex = steps.length - 1;
 
-  const numericForm = useMemo(() => {
-    const f = { ...form };
-    NUMERIC_KEYS.forEach(k => { f[k] = Number(f[k]) || 0; });
-    return f;
-  }, [form]);
+  const numericForm = useMemo(() => deriveFinancials(toNumericForm(form)), [form]);
 
   const canProceedStep0 = form.companyName.trim() && form.sector && form.businessType && form.contactPerson.trim();
 
@@ -689,29 +988,69 @@ function IntakeWizard({ onCancel, onSubmit, saving, defaultConsultant }) {
       )}
 
       {step === 1 && (
-        <SectionCard icon={Wallet} title="البيانات المالية" subtitle="أرقام آخر فترة مالية مكتملة (بالريال السعودي)" accent={C.ink}>
+        <SectionCard icon={Wallet} title="قائمة الدخل" subtitle="بنود آخر فترة مالية مكتملة (بالريال السعودي) — الأرباح تُحتسب تلقائيًا" accent={C.ink}>
           <Field label="الإيرادات الحالية" unit="﷼" value={form.currentRevenue} onChange={set('currentRevenue')} />
           <Field label="إيرادات الفترة السابقة" unit="﷼" value={form.previousRevenue} onChange={set('previousRevenue')} />
-          <Field label="صافي الربح" unit="﷼" value={form.netProfit} onChange={set('netProfit')} />
-          <Field label="إجمالي الربح" unit="﷼" value={form.grossProfit} onChange={set('grossProfit')} />
-          <Field label="الأصول المتداولة" unit="﷼" value={form.currentAssets} onChange={set('currentAssets')} />
-          <Field label="الخصوم المتداولة" unit="﷼" value={form.currentLiabilities} onChange={set('currentLiabilities')} />
-          <Field label="قيمة المخزون" unit="﷼" value={form.inventoryValue} onChange={set('inventoryValue')} />
-          <Field label="إجمالي الالتزامات" unit="﷼" value={form.totalLiabilities} onChange={set('totalLiabilities')} />
-          <Field label="حقوق الملكية" unit="﷼" value={form.totalEquity} onChange={set('totalEquity')} />
+          <Field label="تكلفة البضاعة المباعة (COGS)" unit="﷼" value={form.cogs} onChange={set('cogs')} />
+          <ComputedField label="إجمالي الربح (محتسب)" value={numericForm.grossProfit} />
+          <Field label="مصاريف بيعية وتسويقية" unit="﷼" value={form.sellingExpenses} onChange={set('sellingExpenses')} />
+          <Field label="مصاريف إدارية وعمومية" unit="﷼" value={form.adminExpenses} onChange={set('adminExpenses')} />
+          <ComputedField label="EBITDA (محتسب)" value={numericForm.ebitda} />
+          <Field label="الإهلاك والاستهلاك" unit="﷼" value={form.depreciationAmortization} onChange={set('depreciationAmortization')} />
+          <ComputedField label="EBIT (محتسب)" value={numericForm.ebit} />
+          <Field label="المصاريف التمويلية (الفوائد)" unit="﷼" value={form.interestExpense} onChange={set('interestExpense')} />
+          <Field label="الزكاة / الضريبة" unit="﷼" value={form.taxExpense} onChange={set('taxExpense')} />
+          <ComputedField label="صافي الربح (محتسب)" value={numericForm.netProfit} />
         </SectionCard>
       )}
 
       {step === 2 && (
+        <>
+          <SectionCard icon={Wallet} title="الأصول" subtitle="قائمة المركز المالي — جانب الأصول" accent={C.steel}>
+            <Field label="النقد وما في حكمه" unit="﷼" value={form.cashAndEquivalents} onChange={set('cashAndEquivalents')} />
+            <Field label="الذمم المدينة" unit="﷼" value={form.accountsReceivable} onChange={set('accountsReceivable')} />
+            <Field label="المخزون (آخر الفترة)" unit="﷼" value={form.inventoryValue} onChange={set('inventoryValue')} />
+            <Field label="أصول متداولة أخرى" unit="﷼" value={form.otherCurrentAssets} onChange={set('otherCurrentAssets')} />
+            <ComputedField label="إجمالي الأصول المتداولة (محتسب)" value={numericForm.currentAssets} />
+            <Field label="الممتلكات والمعدات (صافي)" unit="﷼" value={form.ppeNet} onChange={set('ppeNet')} />
+            <Field label="أصول غير متداولة أخرى" unit="﷼" value={form.otherNonCurrentAssets} onChange={set('otherNonCurrentAssets')} />
+            <ComputedField label="إجمالي الأصول (محتسب)" value={numericForm.totalAssets} />
+          </SectionCard>
+          <SectionCard icon={Wallet} title="الالتزامات وحقوق الملكية" subtitle="قائمة المركز المالي — جانب الالتزامات وحقوق الملكية" accent={C.brick}>
+            <Field label="الذمم الدائنة" unit="﷼" value={form.accountsPayable} onChange={set('accountsPayable')} />
+            <Field label="قروض قصيرة الأجل" unit="﷼" value={form.shortTermDebt} onChange={set('shortTermDebt')} />
+            <Field label="التزامات متداولة أخرى" unit="﷼" value={form.otherCurrentLiabilities} onChange={set('otherCurrentLiabilities')} />
+            <ComputedField label="إجمالي الالتزامات المتداولة (محتسب)" value={numericForm.currentLiabilities} />
+            <Field label="قروض طويلة الأجل" unit="﷼" value={form.longTermDebt} onChange={set('longTermDebt')} />
+            <Field label="التزامات غير متداولة أخرى" unit="﷼" value={form.otherNonCurrentLiabilities} onChange={set('otherNonCurrentLiabilities')} />
+            <ComputedField label="إجمالي الالتزامات (محتسب)" value={numericForm.totalLiabilities} />
+            <Field label="رأس المال المدفوع" unit="﷼" value={form.paidInCapital} onChange={set('paidInCapital')} />
+            <Field label="الأرباح المُبقاة" unit="﷼" value={form.retainedEarnings} onChange={set('retainedEarnings')} />
+            <Field label="بنود حقوق ملكية أخرى" unit="﷼" value={form.otherEquity} onChange={set('otherEquity')} />
+            <ComputedField label="إجمالي حقوق الملكية (محتسب)" value={numericForm.totalEquity} />
+            <ComputedField
+              label="فحص التوازن المحاسبي (الأصول − الالتزامات − حقوق الملكية)"
+              value={numericForm.balanceCheck}
+              warn={Math.abs(numericForm.balanceCheck) > 1}
+            />
+          </SectionCard>
+          {Math.abs(numericForm.balanceCheck) > 1 && (
+            <div style={{ background: `${C.brick}0D`, border: `1px solid ${C.brick}30`, borderRadius: 10, padding: 12, fontSize: 12.5, color: C.brick, marginTop: -10, marginBottom: 20 }}>
+              ⚠️ قائمة المركز المالي غير متوازنة (الفارق: {numericForm.balanceCheck.toLocaleString('ar')} ﷼). راجع بنود الأصول والالتزامات وحقوق الملكية قبل المتابعة.
+            </div>
+          )}
+        </>
+      )}
+
+      {step === 3 && (
         <SectionCard icon={Factory} title="البيانات التشغيلية" subtitle="مؤشرات المخزون والعمليات والطاقة الإنتاجية" accent={C.steel}>
-          <Field label="تكلفة البضاعة المباعة (COGS)" unit="﷼" value={form.cogs} onChange={set('cogs')} />
-          <Field label="متوسط قيمة المخزون" unit="﷼" value={form.avgInventoryValue} onChange={set('avgInventoryValue')} />
+          <Field label="متوسط قيمة المخزون خلال الفترة" unit="﷼" value={form.avgInventoryValue} onChange={set('avgInventoryValue')} />
           <Field label="نسبة التسليم في الوقت المحدد" unit="%" value={form.onTimeFulfillmentPct} onChange={set('onTimeFulfillmentPct')} />
           <Field label="نسبة استغلال الطاقة التشغيلية" unit="%" value={form.capacityUtilizationPct} onChange={set('capacityUtilizationPct')} />
         </SectionCard>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <SectionCard icon={ShoppingCart} title="البيانات التجارية" subtitle="مؤشرات المبيعات والعملاء" accent={C.brass}>
           <Field label="معدل الاحتفاظ بالعملاء" unit="%" value={form.retentionRatePct} onChange={set('retentionRatePct')} />
           <Field label="تكلفة اكتساب العميل (CAC)" unit="﷼" value={form.cac} onChange={set('cac')} />
@@ -719,7 +1058,7 @@ function IntakeWizard({ onCancel, onSubmit, saving, defaultConsultant }) {
         </SectionCard>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <SectionCard icon={Monitor} title="البيانات الرقمية" subtitle="مؤشرات القنوات الرقمية والتجارة الإلكترونية (اتركها صفرًا إن لم تنطبق)" accent={C.sage}>
           <Field label="معدل التحويل الرقمي" unit="%" value={form.conversionRatePct} onChange={set('conversionRatePct')} />
           <Field label="نسبة التخلي عن سلة الشراء" unit="%" value={form.cartAbandonmentPct} onChange={set('cartAbandonmentPct')} />
@@ -734,6 +1073,42 @@ function IntakeWizard({ onCancel, onSubmit, saving, defaultConsultant }) {
             </label>
           </div>
         </SectionCard>
+      )}
+
+      {step === 6 && (
+        <>
+          <SectionCard icon={ClipboardList} title="تحليل SWOT" subtitle="نقطة لكل سطر — تُعرض في التقرير كقائمة" accent={C.ink}>
+            <TextAreaField label="نقاط القوة" value={form.swotStrengths} onChange={set('swotStrengths')} span={1} placeholder={'مثال:\nعلامة تجارية معروفة محليًا\nفريق مبيعات متمرس'} />
+            <TextAreaField label="نقاط الضعف" value={form.swotWeaknesses} onChange={set('swotWeaknesses')} span={1} placeholder={'مثال:\nاعتماد كبير على عميل واحد\nضعف الأنظمة الرقمية'} />
+            <TextAreaField label="الفرص" value={form.swotOpportunities} onChange={set('swotOpportunities')} span={1} placeholder={'مثال:\nنمو الطلب في القطاع\nفرص تصدير إقليمية'} />
+            <TextAreaField label="التهديدات" value={form.swotThreats} onChange={set('swotThreats')} span={1} placeholder={'مثال:\nدخول منافسين جدد\nتقلب أسعار المواد الخام'} />
+          </SectionCard>
+          <SectionCard icon={Layers} title="تحليل PESTEL" subtitle="العوامل الخارجية المؤثرة على القطاع والمنشأة" accent={C.steel}>
+            <TextAreaField label="سياسية (Political)" value={form.pestelPolitical} onChange={set('pestelPolitical')} rows={2} />
+            <TextAreaField label="اقتصادية (Economic)" value={form.pestelEconomic} onChange={set('pestelEconomic')} rows={2} />
+            <TextAreaField label="اجتماعية (Social)" value={form.pestelSocial} onChange={set('pestelSocial')} rows={2} />
+            <TextAreaField label="تقنية (Technological)" value={form.pestelTechnological} onChange={set('pestelTechnological')} rows={2} />
+            <TextAreaField label="بيئية (Environmental)" value={form.pestelEnvironmental} onChange={set('pestelEnvironmental')} rows={2} />
+            <TextAreaField label="نظامية/قانونية (Legal)" value={form.pestelLegal} onChange={set('pestelLegal')} rows={2} />
+          </SectionCard>
+        </>
+      )}
+
+      {step === 7 && (
+        <>
+          <SectionCard icon={ShoppingCart} title="الموقع التنافسي" subtitle="نظرة السوق التنافسية" accent={C.brass}>
+            <TextAreaField label="أبرز المنافسين" value={form.mainCompetitors} onChange={set('mainCompetitors')} rows={2} span={2} placeholder="أسماء 2-3 منافسين رئيسيين" />
+            <SelectField label="الموقع التنافسي الحالي" value={form.competitivePosition} onChange={set('competitivePosition')}
+              options={['رائد السوق', 'منافس قوي', 'لاعب متوسط', 'متخصص (Niche)']} />
+            <TextAreaField label="الميزة التنافسية الأساسية" value={form.competitiveAdvantage} onChange={set('competitiveAdvantage')} rows={2} span={3} />
+          </SectionCard>
+          <SectionCard icon={ShieldCheck} title="نضج الإدارة والقيادة" subtitle="تقييم ذاتي من 1 (ضعيف) إلى 5 (ممتاز) — يُعرض كمؤشر استعداد إداري منفصل" accent={C.ink}>
+            <RatingField label="وضوح الرؤية الاستراتيجية" value={form.mgmtVisionClarity} onChange={set('mgmtVisionClarity')} />
+            <RatingField label="جودة نظم المعلومات الإدارية" value={form.mgmtInfoSystems} onChange={set('mgmtInfoSystems')} />
+            <RatingField label="قوة الفريق القيادي" value={form.mgmtLeadershipStrength} onChange={set('mgmtLeadershipStrength')} />
+            <RatingField label="جودة الحوكمة الداخلية" value={form.mgmtGovernanceQuality} onChange={set('mgmtGovernanceQuality')} />
+          </SectionCard>
+        </>
       )}
 
       {sectorDefs.length > 0 && step === sectorStepIndex && (
@@ -804,7 +1179,9 @@ const ghostBtn = {
    ========================================================================= */
 function ReportView({ record, onBack, onDelete }) {
   const { form, diagnostics, certNumber, date } = record;
-  const chartData = diagnostics.engineList.map(meta => ({
+  const financials = deriveFinancials(toNumericForm(form));
+  const engineList = buildEngineList(diagnostics, form.sector);
+  const chartData = engineList.map(meta => ({
     name: meta.label, value: Math.round(diagnostics.engineScores[meta.key]), color: meta.color,
   }));
 
@@ -853,6 +1230,98 @@ function ReportView({ record, onBack, onDelete }) {
           </div>
         </div>
 
+        {/* Financial statements — full P&L waterfall and balance sheet */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 14 }}>القوائم المالية</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: C.brass, marginBottom: 8 }}>قائمة الدخل</div>
+              {[
+                ['الإيرادات', financials.currentRevenue, false],
+                ['تكلفة البضاعة المباعة', -financials.cogs, false],
+                ['إجمالي الربح', financials.grossProfit, true],
+                ['المصاريف التشغيلية', -financials.operatingExpenses, false],
+                ['EBITDA', financials.ebitda, true],
+                ['الإهلاك والاستهلاك', -financials.depreciationAmortization, false],
+                ['EBIT', financials.ebit, true],
+                ['المصاريف التمويلية', -financials.interestExpense, false],
+                ['الزكاة/الضريبة', -financials.taxExpense, false],
+                ['صافي الربح', financials.netProfit, true],
+              ].map(([label, val, bold]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: bold ? `1.5px solid ${C.ink}` : `1px dashed ${C.line}`, fontSize: 12.5, fontWeight: bold ? 700 : 400, color: bold ? C.ink : C.inkSoft }}>
+                  <span>{label}</span><span>{val.toLocaleString('ar')} ﷼</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: C.steel, marginBottom: 8 }}>قائمة المركز المالي</div>
+              {[
+                ['إجمالي الأصول المتداولة', financials.currentAssets, false],
+                ['إجمالي الأصول غير المتداولة', financials.nonCurrentAssets, false],
+                ['إجمالي الأصول', financials.totalAssets, true],
+                ['إجمالي الالتزامات المتداولة', financials.currentLiabilities, false],
+                ['إجمالي الالتزامات غير المتداولة', financials.nonCurrentLiabilities, false],
+                ['إجمالي الالتزامات', financials.totalLiabilities, true],
+                ['إجمالي حقوق الملكية', financials.totalEquity, true],
+              ].map(([label, val, bold]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: bold ? `1.5px solid ${C.ink}` : `1px dashed ${C.line}`, fontSize: 12.5, fontWeight: bold ? 700 : 400, color: bold ? C.ink : C.inkSoft }}>
+                  <span>{label}</span><span>{val.toLocaleString('ar')} ﷼</span>
+                </div>
+              ))}
+              {Math.abs(financials.balanceCheck) > 1 && (
+                <div style={{ marginTop: 10, fontSize: 11.5, color: C.brick }}>⚠️ فارق توازن محاسبي: {financials.balanceCheck.toLocaleString('ar')} ﷼</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Strategic context — PESTEL */}
+        {(form.pestelPolitical || form.pestelEconomic || form.pestelSocial || form.pestelTechnological || form.pestelEnvironmental || form.pestelLegal) && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 14 }}>السياق الاستراتيجي — تحليل PESTEL</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              {[
+                ['سياسية', form.pestelPolitical], ['اقتصادية', form.pestelEconomic], ['اجتماعية', form.pestelSocial],
+                ['تقنية', form.pestelTechnological], ['بيئية', form.pestelEnvironmental], ['نظامية/قانونية', form.pestelLegal],
+              ].filter(([, v]) => v).map(([label, val]) => (
+                <div key={label} style={{ background: C.paper, borderRadius: 10, padding: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.brass, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.7, whiteSpace: 'pre-line' }}>{val}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SWOT */}
+        {(form.swotStrengths || form.swotWeaknesses || form.swotOpportunities || form.swotThreats) && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 14 }}>تحليل SWOT</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[
+                ['نقاط القوة', form.swotStrengths, C.sage], ['نقاط الضعف', form.swotWeaknesses, C.brick],
+                ['الفرص', form.swotOpportunities, C.brass], ['التهديدات', form.swotThreats, C.amber],
+              ].map(([label, val, color]) => (
+                <div key={label} style={{ background: `${color}0D`, border: `1px solid ${color}30`, borderRadius: 10, padding: 14 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color, marginBottom: 6 }}>{label}</div>
+                  {val ? (
+                    <ul style={{ margin: 0, paddingRight: 18, fontSize: 12.5, color: C.inkSoft, lineHeight: 1.9 }}>
+                      {val.split('\n').filter(Boolean).map((line, i) => <li key={i}>{line}</li>)}
+                    </ul>
+                  ) : <div style={{ fontSize: 12, color: C.steel }}>لا يوجد إدخال</div>}
+                </div>
+              ))}
+            </div>
+            {(form.mainCompetitors || form.competitivePosition || form.competitiveAdvantage) && (
+              <div style={{ marginTop: 12, background: C.paper, borderRadius: 10, padding: 14, fontSize: 12.5, color: C.inkSoft, lineHeight: 1.9 }}>
+                {form.competitivePosition && <div><strong style={{ color: C.ink }}>الموقع التنافسي: </strong>{form.competitivePosition}</div>}
+                {form.mainCompetitors && <div><strong style={{ color: C.ink }}>أبرز المنافسين: </strong>{form.mainCompetitors}</div>}
+                {form.competitiveAdvantage && <div><strong style={{ color: C.ink }}>الميزة التنافسية: </strong>{form.competitiveAdvantage}</div>}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Engine scores chart */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 14 }}>نتائج محركات التشخيص</div>
@@ -874,7 +1343,7 @@ function ReportView({ record, onBack, onDelete }) {
         {/* KPI table by engine */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 14 }}>تفصيل المؤشرات</div>
-          {diagnostics.engineList.map(meta => (
+          {engineList.map(meta => (
             <div key={meta.key} style={{ marginBottom: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <meta.icon size={15} color={meta.color} />
@@ -882,11 +1351,21 @@ function ReportView({ record, onBack, onDelete }) {
                 <span style={{ fontSize: 12, color: C.steel }}>— {Math.round(diagnostics.engineScores[meta.key])}/100</span>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1.5px solid ${C.line}` }}>
+                    <th style={{ padding: '6px', textAlign: 'right', fontSize: 11, color: C.steel, fontWeight: 600 }}>المؤشر</th>
+                    <th style={{ padding: '6px', fontSize: 11, color: C.steel, fontWeight: 600 }}>القيمة</th>
+                    <th style={{ padding: '6px', fontSize: 11, color: C.steel, fontWeight: 600 }}>معيار القطاع</th>
+                    <th style={{ padding: '6px', fontSize: 11, color: C.steel, fontWeight: 600 }}></th>
+                    <th style={{ padding: '6px', fontSize: 11, color: C.steel, fontWeight: 600 }}></th>
+                  </tr>
+                </thead>
                 <tbody>
                   {diagnostics.kpis.filter(k => k.engine === meta.key).map(k => (
                     <tr key={k.id} style={{ borderBottom: `1px solid ${C.line}` }}>
                       <td style={{ padding: '8px 6px', color: C.inkSoft }}>{k.label}</td>
-                      <td style={{ padding: '8px 6px', fontWeight: 600, color: C.ink, width: 90 }}>{fmtNum(k.value, k.unit)}</td>
+                      <td style={{ padding: '8px 6px', fontWeight: 600, color: C.ink, width: 80 }}>{fmtNum(k.value, k.unit)}</td>
+                      <td style={{ padding: '8px 6px', width: 80, color: C.steel }}>{k.benchmark !== undefined ? fmtNum(k.benchmark, k.unit) : '—'}</td>
                       <td style={{ padding: '8px 6px', width: 140 }}>
                         <div style={{ background: C.paperAlt, borderRadius: 6, height: 8, overflow: 'hidden' }}>
                           <div style={{ width: `${k.score}%`, height: '100%', background: k.score < 40 ? C.brick : k.score < 60 ? C.amber : C.sage, borderRadius: 6 }} />
@@ -901,7 +1380,57 @@ function ReportView({ record, onBack, onDelete }) {
           ))}
         </div>
 
-        {/* Recommendations */}
+        {/* Management readiness */}
+        {diagnostics.managementMaturity && (
+          <div style={{ marginBottom: 32, display: 'grid', gridTemplateColumns: '150px 1fr', gap: 24, alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Gauge score={diagnostics.managementMaturity.score} color={C.brass} size={120} />
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: C.brass, marginTop: 4, textAlign: 'center' }}>استعداد الإدارة والقيادة</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 15, color: C.ink, marginBottom: 8 }}>نضج الإدارة (مؤشر منفصل — تقييم ذاتي)</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                {diagnostics.managementMaturity.details.map(d => (
+                  <div key={d.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: C.inkSoft, background: C.paper, borderRadius: 8, padding: '6px 10px' }}>
+                    <span>{d.label}</span><strong style={{ color: C.ink }}>{d.value}/5</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Root cause analysis — fishbone */}
+        {diagnostics.rootCauseGroups && diagnostics.rootCauseGroups.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 6 }}>تحليل الجذور — إطار عظم السمكة المعدَّل (6M)</div>
+            <div style={{ fontSize: 12, color: C.steel, marginBottom: 14 }}>تصنيف نقاط الضعف المكتشفة حسب فئة السبب الجذري المحتمل</div>
+            <div style={{ overflowX: 'auto' }}>
+              <FishboneDiagram groups={diagnostics.rootCauseGroups} riskLabel={diagnostics.riskBand.label} />
+            </div>
+          </div>
+        )}
+
+        {/* Scenario analysis */}
+        {diagnostics.scenarios && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 6 }}>تحليل السيناريوهات (أفق 12 شهرًا)</div>
+            <div style={{ fontSize: 11.5, color: C.steel, marginBottom: 14 }}>تقديرات اتجاهية استرشادية مبنية على معدل النمو الحالي ومؤشر الصحة — وليست توقعات مالية دقيقة</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              {[diagnostics.scenarios.worst, diagnostics.scenarios.expected, diagnostics.scenarios.best].map((s, i) => (
+                <div key={i} style={{ background: C.paper, borderRadius: 12, padding: 16, borderTop: `3px solid ${i===0?C.brick:i===1?C.brass:C.sage}` }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: i===0?C.brick:i===1?C.brass:C.sage, marginBottom: 8 }}>{s.label}</div>
+                  <div style={{ fontSize: 11.5, color: C.steel }}>نمو الإيرادات المفترض</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 8 }}>{Math.round(s.growth * 10) / 10}%</div>
+                  <div style={{ fontSize: 11.5, color: C.steel }}>الإيراد المتوقع</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 8 }}>{s.revenue.toLocaleString('ar')} ﷼</div>
+                  <div style={{ fontSize: 11.5, color: C.steel }}>مؤشر الصحة المتوقع</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.ink }}>{s.healthScore}/100</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 14 }}>
             التوصيات ذات الأولوية ({diagnostics.recommendations.length})
@@ -1111,6 +1640,28 @@ function AuthScreen({ onAuthed }) {
 /* =========================================================================
    App shell — auth gate + session lifecycle
    ========================================================================= */
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('Vantage render error:', error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div dir="rtl" style={{ fontFamily: "'IBM Plex Sans Arabic', sans-serif", padding: 40, maxWidth: 600, margin: '60px auto', textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 8 }}>حدث خطأ غير متوقع أثناء عرض هذه الصفحة</div>
+          <div style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>{String(this.state.error.message || this.state.error)}</div>
+          <button onClick={() => { this.setState({ error: null }); window.location.reload(); }}
+            style={{ ...primaryBtn, margin: '0 auto' }}>
+            إعادة تحميل الصفحة
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function LoadingScreen({ label }) {
   return (
     <div dir="rtl" style={{ fontFamily: "'IBM Plex Sans Arabic', sans-serif", background: C.ink, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1120,7 +1671,7 @@ function LoadingScreen({ label }) {
   );
 }
 
-export default function App() {
+function AppInner() {
   const [session, setSession] = useState(null); // { accessToken, refreshToken, user, profile }
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -1171,6 +1722,14 @@ export default function App() {
   if (authLoading) return <LoadingScreen label="جاري التحقق من الجلسة..." />;
   if (!session) return <AuthScreen onAuthed={establishSession} />;
   return <Workspace session={session} onLogout={handleLogout} />;
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
+  );
 }
 
 /* =========================================================================
