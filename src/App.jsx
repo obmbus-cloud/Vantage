@@ -556,24 +556,29 @@ function buildReportRTF(record) {
   }
 
   b += `{\\fs18\\cf7 ${rtfEscape('────────────────────────────────────────')}\\par}\n`;
-  b += `{\\fs16\\cf3 ${rtfEscape('هذا التقرير مُولَّد آليًا من بيانات المدخلات المقدَّمة ويخضع لاعتماد المستشار المسؤول قبل تسليمه للعميل.')}\\par}\n`;
-  b += `{\\fs16\\cf3 ${rtfEscape(`${form.consultant} · ${date}`)}\\par}\n`;
+  b += `{\\fs16\\cf3 ${rtfEscape('هذا التقرير سري ومُعَدّ حصريًا لصالح ' + form.companyName + '. جميع الحقوق محفوظة لمكتب فانتج للاستشارات.')}\\par}\n`;
+  b += `{\\fs16\\cf3 ${rtfEscape(`أُعِدَّ بواسطة: ${form.consultant}   |   ${date}`)}\\par}\n`;
   b += `}`;
   return b;
 }
 
 function downloadReportRTF(record) {
-  const rtf = buildReportRTF(record);
-  const blob = new Blob([rtf], { type: 'application/rtf' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const safeName = record.form.companyName.replace(/[\\/:*?"<>|]/g, '-').trim() || 'تقرير';
-  a.href = url;
-  a.download = `${safeName} - تقرير فانتج - ${record.certNumber}.rtf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  try {
+    const rtf = buildReportRTF(record);
+    const blob = new Blob([rtf], { type: 'application/rtf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeName = record.form.companyName.replace(/[\\/:*?"<>|]/g, '-').trim() || 'تقرير';
+    a.href = url;
+    a.download = `${safeName} - تقرير فانتج - ${record.certNumber}.rtf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (err) {
+    console.error('Word export failed:', err);
+    alert('تعذر تصدير التقرير إلى Word: ' + (err && err.message ? err.message : 'خطأ غير معروف'));
+  }
 }
 
 /* =========================================================================
@@ -943,7 +948,7 @@ const NUMERIC_KEYS = Object.keys(emptyForm()).filter(k => !TEXT_FIELD_KEYS.inclu
 /* =========================================================================
    Intake Wizard
    ========================================================================= */
-function IntakeWizard({ onCancel, onSubmit, saving, defaultConsultant }) {
+function IntakeWizard({ onCancel, onSubmit, saving, error, defaultConsultant }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(() => emptyForm(defaultConsultant));
   const set = (k) => (v) => setForm(prev => ({ ...prev, [k]: v }));
@@ -1135,6 +1140,12 @@ function IntakeWizard({ onCancel, onSubmit, saving, defaultConsultant }) {
             <div><span style={{ color: C.steel }}>القطاع: </span><strong>{form.sector || '—'}</strong></div>
             <div><span style={{ color: C.steel }}>مسؤول التواصل: </span><strong>{form.contactPerson || '—'}</strong></div>
           </div>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ background: `${C.brick}0D`, border: `1px solid ${C.brick}30`, borderRadius: 10, padding: 14, fontSize: 13, color: C.brick, marginTop: 20 }}>
+          ⚠️ {error}
         </div>
       )}
 
@@ -1463,8 +1474,8 @@ function ReportView({ record, onBack, onDelete }) {
 
         {/* Footer sign-off */}
         <div style={{ marginTop: 36, paddingTop: 20, borderTop: `1px solid ${C.line}`, display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.steel }}>
-          <span>هذا التقرير مُولَّد آليًا من بيانات المدخلات المقدَّمة ويخضع لاعتماد المستشار المسؤول قبل تسليمه للعميل.</span>
-          <span>{form.consultant} · {date}</span>
+          <span>هذا التقرير سري ومُعَدّ حصريًا لصالح {form.companyName}. جميع الحقوق محفوظة لمكتب فانتج للاستشارات.</span>
+          <span>أُعِدَّ بواسطة: {form.consultant} · {date}</span>
         </div>
       </div>
     </div>
@@ -1760,30 +1771,38 @@ function Workspace({ session, onLogout }) {
     return () => clearInterval(interval);
   }, []);
 
+  const [submitError, setSubmitError] = useState('');
+
   const handleSubmit = async (numericForm, rawForm) => {
-    const diagnostics = computeDiagnostics(numericForm, rawForm.sector);
-    const now = new Date();
-    const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-    const certNumber = `VG-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${suffix}`;
-    const draft = {
-      form: rawForm, diagnostics, certNumber,
-      date: now.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }),
-    };
+    setSubmitError('');
     setSaving(true);
     try {
-      const saved = await insertCaseRemote(draft, session.accessToken, session.profile);
-      setCases(prev => [saved, ...prev]);
-      setActiveId(saved.id);
-      setSyncStatus('online');
+      const diagnostics = computeDiagnostics(numericForm, rawForm.sector);
+      const now = new Date();
+      const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+      const certNumber = `VG-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${suffix}`;
+      const draft = {
+        form: rawForm, diagnostics, certNumber,
+        date: now.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }),
+      };
+      try {
+        const saved = await insertCaseRemote(draft, session.accessToken, session.profile);
+        setCases(prev => [saved, ...prev]);
+        setActiveId(saved.id);
+        setSyncStatus('online');
+      } catch (err) {
+        console.error('Save to database failed:', err);
+        const fallbackId = `local-${Date.now()}`;
+        setCases(prev => [{ ...draft, id: fallbackId, unsynced: true, createdByName: session.profile.full_name }, ...prev]);
+        setActiveId(fallbackId);
+        setSyncStatus('offline');
+      }
+      setView('report');
     } catch (err) {
-      console.error(err);
-      const fallbackId = `local-${Date.now()}`;
-      setCases(prev => [{ ...draft, id: fallbackId, unsynced: true, createdByName: session.profile.full_name }, ...prev]);
-      setActiveId(fallbackId);
-      setSyncStatus('offline');
+      console.error('Diagnostics computation failed:', err);
+      setSubmitError('تعذر توليد التشخيص: ' + (err && err.message ? err.message : 'خطأ غير معروف') + ' — تحقق من صحة القيم المدخلة (خصوصًا الأرقام) وحاول مرة أخرى.');
     } finally {
       setSaving(false);
-      setView('report');
     }
   };
 
@@ -1868,7 +1887,7 @@ function Workspace({ session, onLogout }) {
             <Dashboard cases={cases} loaded={loaded} onOpen={(id) => { setActiveId(id); setView('report'); }} onNew={() => setView('intake')} onRefresh={refreshCases} />
           )}
           {view === 'intake' && (
-            <IntakeWizard onCancel={() => setView('dashboard')} onSubmit={handleSubmit} saving={saving} defaultConsultant={session.profile.full_name} />
+            <IntakeWizard onCancel={() => setView('dashboard')} onSubmit={handleSubmit} saving={saving} error={submitError} defaultConsultant={session.profile.full_name} />
           )}
           {view === 'report' && activeRecord && (
             <ReportView record={activeRecord} onBack={() => setView('dashboard')} onDelete={handleDelete} />
