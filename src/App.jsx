@@ -81,12 +81,24 @@ const KPI_DEFS = [
   { id: 'capacityUtilization', label: 'استغلال الطاقة التشغيلية', unit: '%', engine: 'operational', benchmark: 78,
     calc: f => f.capacityUtilizationPct,
     score: v => (v >= 70 && v <= 85) ? 100 : (v >= 60 && v <= 95) ? 70 : 40 },
+  { id: 'revenuePerEmployee', label: 'الإيراد لكل موظف', unit: '﷼', engine: 'operational', benchmark: 180000,
+    calc: f => f.employeeCount > 0 ? f.currentRevenue / f.employeeCount : 0,
+    score: v => band(v, [[250000,100],[180000,80],[120000,60],[70000,30]], 10) },
+  { id: 'employeeTurnover', label: 'معدل دوران الموظفين', unit: '%', engine: 'operational', benchmark: 15,
+    calc: f => f.employeeTurnoverPct,
+    score: v => bandLower(v, [[10,100],[15,80],[22,60],[30,30]], 10) },
   { id: 'retentionRate', label: 'معدل الاحتفاظ بالعملاء', unit: '%', engine: 'commercial', benchmark: 78,
     calc: f => f.retentionRatePct,
     score: v => band(v, [[85,100],[70,80],[50,60],[30,30]], 10) },
   { id: 'cacToDealRatio', label: 'تكلفة الاكتساب لقيمة الصفقة', unit: 'x', engine: 'commercial', benchmark: 0.15,
     calc: f => f.avgDealValue > 0 ? f.cac / f.avgDealValue : 1,
     score: v => 100 - band(v, [[0.5,90],[0.35,70],[0.2,40],[0.1,20]], 0) },
+  { id: 'npsScore', label: 'صافي نقاط الترويج (NPS)', unit: '', engine: 'commercial', benchmark: 30,
+    calc: f => f.npsScore,
+    score: v => band(v, [[50,100],[30,80],[10,60],[-10,30]], 10) },
+  { id: 'pipelineConversion', label: 'معدل تحويل الفرص البيعية', unit: '%', engine: 'commercial', benchmark: 25,
+    calc: f => f.salesPipelineConversionPct,
+    score: v => band(v, [[35,100],[25,80],[15,60],[8,30]], 10) },
   { id: 'conversionRate', label: 'معدل التحويل الرقمي', unit: '%', engine: 'digital', benchmark: 2.2,
     calc: f => f.conversionRatePct,
     score: v => band(v, [[3,100],[2,80],[1,60],[0.5,30]], 10) },
@@ -96,6 +108,12 @@ const KPI_DEFS = [
   { id: 'ltvCacRatio', label: 'القيمة الدائمة إلى تكلفة الاكتساب', unit: 'x', engine: 'digital', benchmark: 2.5,
     calc: f => f.digitalCac > 0 ? f.ltv / f.digitalCac : 0,
     score: v => band(v, [[3,100],[2,80],[1,60],[0.5,30]], 10) },
+  { id: 'digitalTrafficGrowth', label: 'نمو الزيارات الرقمية', unit: '%', engine: 'digital', benchmark: 15,
+    calc: f => f.digitalTrafficGrowthPct,
+    score: v => band(v, [[25,100],[15,80],[5,60],[-10,30]], 10) },
+  { id: 'digitalRevenueShare', label: 'نسبة الإيرادات الرقمية من الإجمالي', unit: '%', engine: 'digital', benchmark: 20,
+    calc: f => f.digitalRevenueSharePct,
+    score: v => band(v, [[35,100],[20,80],[10,60],[3,30]], 10) },
 ];
 
 const ENGINE_META = {
@@ -106,7 +124,7 @@ const ENGINE_META = {
   sector:      { label: 'مؤشرات القطاع',    icon: Layers,       color: C.amber },
 };
 
-const BASE_WEIGHTS = { financial: 0.35, operational: 0.20, commercial: 0.25, digital: 0.20 };
+const BASE_WEIGHTS = { financial: 0.28, operational: 0.24, commercial: 0.24, digital: 0.24 };
 const SECTOR_WEIGHT = 0.20;
 
 // Sector-specific KPI library — engine assigned to 'sector' at compute time.
@@ -197,7 +215,57 @@ const FISHBONE_CATEGORY = {
   management:   { label: 'الإدارة والقيادة', sub: 'Man' },
 };
 
+// Plain-language definition + formula for every KPI — surfaced via info icons in the report
+// and as a glossary appendix, so analysts unfamiliar with a term can understand it instantly.
+const KPI_GLOSSARY = {
+  revenueGrowth:        { def: 'نسبة الزيادة أو النقص في الإيرادات مقارنة بنفس الفترة من العام السابق.', formula: '(الإيرادات الحالية − السابقة) ÷ السابقة × 100' },
+  netMargin:            { def: 'نسبة ما يتبقى من كل ريال مبيعات كربح صافٍ بعد كل المصاريف والضرائب.', formula: 'صافي الربح ÷ الإيرادات × 100' },
+  currentRatio:         { def: 'قدرة المنشأة على سداد التزاماتها قصيرة الأجل من أصولها المتداولة.', formula: 'الأصول المتداولة ÷ الالتزامات المتداولة' },
+  quickRatio:           { def: 'مثل نسبة التداول لكن دون الاعتماد على بيع المخزون — تقيس السيولة الفورية.', formula: '(الأصول المتداولة − المخزون) ÷ الالتزامات المتداولة' },
+  debtEquity:           { def: 'مدى اعتماد المنشأة على الديون مقارنة برأس مال الملاك.', formula: 'إجمالي الالتزامات ÷ إجمالي حقوق الملكية' },
+  ebitdaMargin:         { def: 'ربحية التشغيل الأساسية قبل الفوائد والضرائب والإهلاك — يعكس كفاءة العمليات بمعزل عن القرارات التمويلية والمحاسبية.', formula: 'EBITDA ÷ الإيرادات × 100' },
+  inventoryTurnover:    { def: 'عدد مرات بيع المخزون واستبداله خلال الفترة — كلما ارتفع دل على كفاءة أعلى.', formula: 'تكلفة البضاعة المباعة ÷ متوسط المخزون' },
+  onTimeFulfillment:    { def: 'نسبة الطلبات التي سُلِّمت للعميل في الموعد المتفق عليه دون تأخير.', formula: 'الطلبات المسلَّمة في الوقت ÷ إجمالي الطلبات × 100' },
+  capacityUtilization:  { def: 'مدى استغلال الطاقة الإنتاجية أو التشغيلية المتاحة — النطاق الأمثل عادة 70-85%، فوقه إجهاد وتحته هدر.', formula: 'الإنتاج الفعلي ÷ الطاقة القصوى المتاحة × 100' },
+  revenuePerEmployee:   { def: 'متوسط ما يُنتجه كل موظف من إيرادات — مؤشر إنتاجية عام للقوى العاملة.', formula: 'إجمالي الإيرادات ÷ عدد الموظفين' },
+  employeeTurnover:     { def: 'نسبة الموظفين الذين تركوا العمل خلال الفترة — الارتفاع يشير لمشكلات في الإدارة أو بيئة العمل.', formula: 'عدد المغادرين خلال الفترة ÷ متوسط عدد الموظفين × 100' },
+  retentionRate:        { def: 'نسبة العملاء الذين استمروا في التعامل مع المنشأة ولم يغادروا لمنافس.', formula: 'العملاء المستمرون ÷ عدد العملاء في بداية الفترة × 100' },
+  cacToDealRatio:       { def: 'مدى معقولية تكلفة كسب عميل جديد مقارنة بما يدرّه من إيراد في الصفقة الواحدة.', formula: 'تكلفة اكتساب العميل ÷ متوسط قيمة الصفقة' },
+  npsScore:             { def: 'مقياس عالمي لولاء العملاء ورغبتهم في التوصية بالمنشأة لغيرهم، من -100 (سلبي بالكامل) إلى 100 (إيجابي بالكامل).', formula: '% العملاء المروِّجين − % العملاء المنتقدين' },
+  pipelineConversion:   { def: 'نسبة الفرص البيعية المحتملة التي تتحول فعليًا إلى صفقات مُغلَقة.', formula: 'عدد الصفقات المُغلَقة ÷ عدد الفرص البيعية × 100' },
+  conversionRate:       { def: 'نسبة الزوار الرقميين الذين أكملوا عملية شراء فعلية.', formula: 'عدد عمليات الشراء ÷ عدد الزيارات × 100' },
+  cartAbandonment:      { def: 'نسبة من أضافوا منتجات لسلة الشراء الإلكترونية لكنهم لم يكملوا الدفع.', formula: 'السلال المتروكة ÷ إجمالي السلال المُنشأة × 100' },
+  ltvCacRatio:          { def: 'مدى مردودية العميل على المدى الطويل مقارنة بتكلفة اكتسابه — أقل من 1 يعني خسارة على كل عميل جديد.', formula: 'القيمة الدائمة للعميل (LTV) ÷ تكلفة الاكتساب الرقمي (CAC)' },
+  digitalTrafficGrowth: { def: 'نسبة نمو أو تراجع عدد الزيارات للقنوات الرقمية مقارنة بالفترة السابقة.', formula: '(الزيارات الحالية − السابقة) ÷ السابقة × 100' },
+  digitalRevenueShare:  { def: 'مدى مساهمة القنوات الرقمية (الموقع، التطبيق، المتاجر الإلكترونية) في إجمالي إيرادات المنشأة.', formula: 'الإيرادات الرقمية ÷ إجمالي الإيرادات × 100' },
+  // Sector-specific
+  salesPerSqm:          { def: 'كفاءة استغلال المساحة البيعية في تحقيق مبيعات.', formula: 'إجمالي المبيعات ÷ مساحة المتجر بالمتر المربع' },
+  shrinkagePct:         { def: 'نسبة المخزون المفقود أو التالف أو المسروق مقارنة بالمخزون الكلي.', formula: 'قيمة الفاقد ÷ قيمة المخزون الكلي × 100' },
+  oeePct:               { def: 'مقياس شامل لفعالية خط الإنتاج يجمع التوافر وسرعة الأداء والجودة معًا.', formula: 'نسبة التوافر × نسبة الأداء × نسبة الجودة × 100' },
+  scrapRatePct:         { def: 'نسبة المنتجات التالفة أو غير المطابقة للمواصفات من إجمالي الإنتاج.', formula: 'كمية الهالك ÷ إجمالي الإنتاج × 100' },
+  billableUtilizationPct: { def: 'نسبة ساعات عمل الفريق الاستشاري التي يمكن فوترتها فعليًا للعملاء.', formula: 'الساعات القابلة للفوترة ÷ إجمالي ساعات العمل المتاحة × 100' },
+  avgProjectMarginPct: { def: 'متوسط ربحية المشاريع بعد خصم كل تكاليف التنفيذ المباشرة.', formula: '(إيراد المشروع − تكاليفه المباشرة) ÷ إيراد المشروع × 100' },
+  foodCostPct:          { def: 'نسبة تكلفة المكونات الغذائية من سعر بيع الطبق — المعيار الصحي عادة 28-32%.', formula: 'تكلفة الأصناف المباعة ÷ إيرادات المبيعات × 100' },
+  tableTurnoverRate:    { def: 'عدد المرات التي تُشغَل فيها الطاولة الواحدة بعملاء جدد خلال اليوم.', formula: 'عدد الزبائن المخدومين ÷ عدد الطاولات المتاحة (لكل يوم)' },
+  costOverrunPct:       { def: 'مدى تجاوز التكلفة الفعلية للمشروع عن الميزانية المخطَّطة له.', formula: '(التكلفة الفعلية − المخطَّطة) ÷ المخطَّطة × 100' },
+  scheduleDelayPct:     { def: 'مدى تأخر تنفيذ المشروع عن الجدول الزمني الأصلي المتفق عليه.', formula: '(المدة الفعلية − المخطَّطة) ÷ المخطَّطة × 100' },
+  enrollmentRetentionPct: { def: 'نسبة الطلاب المسجَّلين الذين واصلوا الدراسة ولم ينسحبوا.', formula: 'الطلاب المستمرون ÷ إجمالي الطلاب المسجَّلين × 100' },
+  seatUtilizationPct:  { def: 'نسبة إشغال المقاعد الدراسية المتاحة — النطاق الأمثل عادة 70-90%.', formula: 'المقاعد المشغولة ÷ إجمالي المقاعد المتاحة × 100' },
+  bedOccupancyPct:      { def: 'نسبة إشغال الأسرّة داخل المنشأة الصحية — النطاق الأمثل عادة 75-85%.', formula: 'أيام إشغال الأسرّة ÷ (عدد الأسرّة × أيام الفترة) × 100' },
+  patientWaitTimeMin:   { def: 'متوسط الوقت الذي ينتظره المريض قبل تلقي الخدمة الطبية.', formula: 'إجمالي دقائق الانتظار ÷ عدد المرضى' },
+  orderFillRatePct:     { def: 'نسبة الطلبات التي جرى تجهيزها وتسليمها بالكامل دون نقص في الكمية.', formula: 'الطلبات المكتملة بالكامل ÷ إجمالي الطلبات × 100' },
+  avgOrderCycleDays:    { def: 'متوسط عدد الأيام من استلام الطلب حتى تسليمه فعليًا للعميل.', formula: 'مجموع أيام دورة الطلبات ÷ عدد الطلبات' },
+  fleetUtilizationPct: { def: 'نسبة استغلال أسطول النقل من طاقته القصوى — النطاق الأمثل عادة 70-85%.', formula: 'ساعات/كيلومترات التشغيل الفعلية ÷ الطاقة القصوى المتاحة × 100' },
+  deliveryOnTimePct:    { def: 'نسبة الشحنات التي وصلت للعميل في الموعد المحدد تمامًا.', formula: 'الشحنات في الوقت المحدد ÷ إجمالي الشحنات × 100' },
+};
+
 const RECS = {
+  revenuePerEmployee:   { title: 'رفع إنتاجية الموظف', desc: 'الإيراد لكل موظف أقل من المعدل المستهدف. يوصى بمراجعة الهيكل التنظيمي وتوزيع المهام وفرص الأتمتة.' },
+  employeeTurnover:     { title: 'خفض معدل دوران الموظفين', desc: 'معدل مغادرة الموظفين مرتفع، ما يشير لمشكلة جذرها في الإدارة والقيادة وليس فقط في التمويل. يوصى بمراجعة بيئة العمل والتعويضات وبرامج الاستبقاء.' },
+  npsScore:             { title: 'تحسين ولاء العملاء (NPS)', desc: 'صافي نقاط الترويج ضعيف. يوصى بمراجعة تجربة العميل الشاملة وتحديد نقاط الاحتكاك الرئيسية.' },
+  pipelineConversion:   { title: 'رفع كفاءة تحويل الفرص البيعية', desc: 'معدل تحويل الفرص إلى صفقات فعلية منخفض. يوصى بمراجعة عملية المبيعات ومعايير تأهيل العملاء المحتملين.' },
+  digitalTrafficGrowth: { title: 'تنشيط النمو الرقمي', desc: 'نمو الزيارات الرقمية ضعيف أو سالب. يوصى بمراجعة استراتيجية المحتوى والتسويق الرقمي.' },
+  digitalRevenueShare:  { title: 'رفع حصة الإيرادات الرقمية', desc: 'مساهمة القنوات الرقمية في الإيرادات محدودة نسبة للمعدل المستهدف. يوصى بالاستثمار في التحول الرقمي والتجارة الإلكترونية.' },
   ebitdaMargin:         { title: 'تحسين هامش EBITDA', desc: 'هامش الأرباح قبل الفوائد والضرائب والإهلاك أقل من المستوى الصحي. يوصى بمراجعة الكفاءة التشغيلية وبنية التكاليف الثابتة.' },
   revenueGrowth:      { title: 'تنشيط محركات النمو التجاري', desc: 'نمو الإيرادات ضعيف أو سالب. يوصى بمراجعة استراتيجية التسعير، توسيع قنوات المبيعات، وتقييم فرص أسواق جديدة.' },
   netMargin:           { title: 'تحسين هامش الربح الصافي', desc: 'هامش الربح دون المستوى الصحي. يوصى بمراجعة هيكل التكاليف التشغيلية والتسعير ورفع الكفاءة التشغيلية.' },
@@ -411,6 +479,17 @@ function rtfTableRow(cells, widths, opts = {}) {
   return s;
 }
 
+// Builds the executive summary text, explicitly naming the weakest-performing dimension
+// (whichever it is) rather than defaulting to a financial framing.
+function buildSummaryText(diagnostics, engineList, form) {
+  const weakest = [...engineList].sort((a, b) => diagnostics.engineScores[a.key] - diagnostics.engineScores[b.key])[0];
+  const weakestScore = weakest ? Math.round(diagnostics.engineScores[weakest.key]) : null;
+  const dimensionSentence = weakest
+    ? `أظهر التشخيص متعدد الأبعاد (المالي، التشغيلي، التجاري، الرقمي${engineList.some(e => e.key === 'sector') ? '، وخصوصية القطاع' : ''}) أن الجانب الأكثر تأثرًا حاليًا هو "${weakest.label}" (${weakestScore}/100)، وهو ما يوجّه أولوية التوصيات أدناه دون إغفال بقية الأبعاد.`
+    : '';
+  return `بناءً على البيانات المقدَّمة، حصلت ${form.companyName} على مؤشر صحة مؤسسية إجمالي قدره ${diagnostics.healthScore} من 100، ما يصنَّف ضمن فئة "${diagnostics.riskBand.label}". ${dimensionSentence} تم رصد ${diagnostics.recommendations.length} توصية ذات أولوية تتطلب متابعة إدارية، مفصّلة أدناه. المستشار المسؤول عن اعتماد هذا التقرير: ${form.consultant}.`;
+}
+
 function buildReportRTF(record) {
   const { form, diagnostics, certNumber, date } = record;
   const financials = deriveFinancials(toNumericForm(form));
@@ -424,6 +503,9 @@ function buildReportRTF(record) {
   b += `{\\qc\\b\\fs20\\cf2 ${rtfEscape('VANTAGE  ·  فانتج للاستشارات')}\\par}\n`;
   b += `{\\qc\\b\\fs40\\cf1 ${rtfEscape('تقرير التشخيص والتوصيات')}\\par}\n`;
   b += `{\\qc\\fs22\\cf3 ${rtfEscape(`${form.companyName} · ${form.businessType} · ${form.sector}`)}\\par}\n`;
+  if (form.periodStartDate || form.periodEndDate) {
+    b += `{\\qc\\b\\fs19\\cf2 ${rtfEscape(`الفترة محل التحليل: من ${form.periodStartDate || '—'} إلى ${form.periodEndDate || '—'}`)}\\par}\n`;
+  }
   b += `\\par\n`;
   b += `{\\qc\\fs18\\cf3 ${rtfEscape(`رقم الشهادة: ${certNumber}   |   تاريخ الإصدار: ${date}   |   المستشار المسؤول: ${form.consultant}`)}\\par}\n`;
   b += `{\\qc\\fs18\\cf7 ${rtfEscape('────────────────────────────────────────')}\\par}\n\\par\n`;
@@ -431,7 +513,7 @@ function buildReportRTF(record) {
   b += `{\\b\\fs30\\cf1 ${rtfEscape('مؤشر الصحة المؤسسية: ')}${rtfEscape(String(diagnostics.healthScore))} / 100  —  ${rtfEscape(diagnostics.riskBand.label)}\\par}\n\\par\n`;
 
   b += `{\\b\\fs26\\cf1 ${rtfEscape('الملخص التنفيذي')}\\par}\n`;
-  const summary = `بناءً على البيانات المقدَّمة، حصلت ${form.companyName} على مؤشر صحة مؤسسية إجمالي قدره ${diagnostics.healthScore} من 100، ما يصنَّف ضمن فئة "${diagnostics.riskBand.label}". تم رصد ${diagnostics.recommendations.length} توصية ذات أولوية تتطلب متابعة إدارية، مفصّلة أدناه. المستشار المسؤول عن اعتماد هذا التقرير: ${form.consultant}.`;
+  const summary = buildSummaryText(diagnostics, engineList, form);
   b += `{\\fs22\\cf1 ${rtfEscape(summary)}\\par}\n\\par\n`;
 
   if (form.notes) {
@@ -554,6 +636,13 @@ function buildReportRTF(record) {
       b += `{\\fs20\\cf3 ${rtfEscape(r.desc)}\\par}\n\\par\n`;
     });
   }
+
+  b += `{\\b\\fs26\\cf1 ${rtfEscape('ملحق — قاموس المؤشرات')}\\par}\n`;
+  diagnostics.kpis.filter(k => KPI_GLOSSARY[k.id]).forEach(k => {
+    b += `{\\b\\fs19\\cf1 ${rtfEscape(k.label)}\\par}\n`;
+    b += `{\\fs18\\cf3 ${rtfEscape(KPI_GLOSSARY[k.id].def)}\\par}\n`;
+    b += `{\\fs17\\cf7 ${rtfEscape(KPI_GLOSSARY[k.id].formula)}\\par}\n\\par\n`;
+  });
 
   b += `{\\fs18\\cf7 ${rtfEscape('────────────────────────────────────────')}\\par}\n`;
   b += `{\\fs16\\cf3 ${rtfEscape('هذا التقرير سري ومُعَدّ حصريًا لصالح ' + form.companyName + '. جميع الحقوق محفوظة لمكتب فانتج للاستشارات.')}\\par}\n`;
@@ -797,10 +886,40 @@ function CertSeal({ score, riskBand, consultant, certNumber, date, compact = fal
   );
 }
 
-function Field({ label, unit, value, onChange, type = 'number', placeholder, span }) {
+function HintIcon({ text }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button" onClick={() => setOpen(o => !o)}
+        style={{
+          width: 15, height: 15, borderRadius: 99, border: `1px solid ${C.steel}`, background: 'transparent',
+          color: C.steel, fontSize: 9.5, lineHeight: '13px', cursor: 'pointer', padding: 0, marginRight: 5, verticalAlign: 'middle',
+        }}
+        aria-label="توضيح الحقل"
+      >
+        ⓘ
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
+          <div style={{
+            position: 'absolute', zIndex: 31, top: 20, insetInlineStart: 0, width: 210,
+            background: C.ink, color: '#EFEFEF', padding: 10, borderRadius: 9, fontSize: 11.5, lineHeight: 1.7,
+            boxShadow: '0 10px 26px rgba(0,0,0,0.3)', textAlign: 'right',
+          }}>
+            {text}
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
+function Field({ label, unit, value, onChange, type = 'number', placeholder, span, hint }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 6, gridColumn: span ? `span ${span}` : undefined }}>
-      <span style={{ fontSize: 13, color: C.steel, fontWeight: 500 }}>{label}{unit ? ` (${unit})` : ''}</span>
+      <span style={{ fontSize: 13, color: C.steel, fontWeight: 500 }}>{hint && <HintIcon text={hint} />}{label}{unit ? ` (${unit})` : ''}</span>
       <input
         type={type}
         value={value}
@@ -871,6 +990,39 @@ function RatingField({ label, value, onChange, span }) {
   );
 }
 
+function InfoIcon({ kpiId }) {
+  const [open, setOpen] = useState(false);
+  const g = KPI_GLOSSARY[kpiId];
+  if (!g) return null;
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button" onClick={() => setOpen(o => !o)}
+        style={{
+          width: 15, height: 15, borderRadius: 99, border: `1px solid ${C.steel}`, background: 'transparent',
+          color: C.steel, fontSize: 9.5, lineHeight: '13px', cursor: 'pointer', padding: 0, marginRight: 5, verticalAlign: 'middle',
+        }}
+        aria-label="تعريف المؤشر"
+      >
+        ⓘ
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
+          <div style={{
+            position: 'absolute', zIndex: 31, top: 20, insetInlineEnd: 0, width: 230,
+            background: C.ink, color: '#EFEFEF', padding: 12, borderRadius: 10, fontSize: 11.5, lineHeight: 1.7,
+            boxShadow: '0 10px 26px rgba(0,0,0,0.3)', textAlign: 'right',
+          }}>
+            <div style={{ marginBottom: g.formula ? 6 : 0 }}>{g.def}</div>
+            {g.formula && <div style={{ opacity: 0.75, fontSize: 10.5, fontFamily: 'monospace', direction: 'ltr', textAlign: 'left' }}>{g.formula}</div>}
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
 function ComputedField({ label, value, unit = '﷼', warn }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -914,6 +1066,8 @@ const emptyForm = (defaultConsultant) => {
   const base = {
     companyName: '', sector: '', businessType: '', contactPerson: '', contactPhone: '',
     consultant: defaultConsultant || 'الأستاذ محمد العويني', notes: '',
+    // Reporting period — explicit date range for the analysis (addresses "what period is this?")
+    periodStartDate: '', periodEndDate: '',
     // Income statement (full P&L waterfall) — netProfit/grossProfit/ebitda are computed, not entered
     currentRevenue: '', previousRevenue: '', cogs: '',
     sellingExpenses: '', adminExpenses: '', depreciationAmortization: '', interestExpense: '', taxExpense: '',
@@ -923,9 +1077,9 @@ const emptyForm = (defaultConsultant) => {
     accountsPayable: '', shortTermDebt: '', otherCurrentLiabilities: '',
     longTermDebt: '', otherNonCurrentLiabilities: '',
     paidInCapital: '', retainedEarnings: '', otherEquity: '',
-    avgInventoryValue: '', onTimeFulfillmentPct: '', capacityUtilizationPct: '',
-    retentionRatePct: '', cac: '', avgDealValue: '',
-    conversionRatePct: '', cartAbandonmentPct: '', digitalCac: '', ltv: '',
+    avgInventoryValue: '', onTimeFulfillmentPct: '', capacityUtilizationPct: '', employeeCount: '', employeeTurnoverPct: '',
+    retentionRatePct: '', cac: '', avgDealValue: '', npsScore: '', salesPipelineConversionPct: '',
+    conversionRatePct: '', cartAbandonmentPct: '', digitalCac: '', ltv: '', digitalTrafficGrowthPct: '', digitalRevenueSharePct: '',
     // Strategic & qualitative diagnostic module
     swotStrengths: '', swotWeaknesses: '', swotOpportunities: '', swotThreats: '',
     pestelPolitical: '', pestelEconomic: '', pestelSocial: '', pestelTechnological: '', pestelEnvironmental: '', pestelLegal: '',
@@ -938,6 +1092,7 @@ const emptyForm = (defaultConsultant) => {
 
 const TEXT_FIELD_KEYS = [
   'companyName', 'sector', 'businessType', 'contactPerson', 'contactPhone', 'consultant', 'notes',
+  'periodStartDate', 'periodEndDate',
   'swotStrengths', 'swotWeaknesses', 'swotOpportunities', 'swotThreats',
   'pestelPolitical', 'pestelEconomic', 'pestelSocial', 'pestelTechnological', 'pestelEnvironmental', 'pestelLegal',
   'mainCompetitors', 'competitivePosition', 'competitiveAdvantage',
@@ -989,22 +1144,24 @@ function IntakeWizard({ onCancel, onSubmit, saving, error, defaultConsultant }) 
           <Field label="اسم مسؤول التواصل" value={form.contactPerson} onChange={set('contactPerson')} type="text" />
           <Field label="رقم التواصل" value={form.contactPhone} onChange={set('contactPhone')} type="text" placeholder="05xxxxxxxx" />
           <Field label="المستشار المسؤول عن الحالة" value={form.consultant} onChange={set('consultant')} type="text" span={2} />
+          <Field label="بداية الفترة المالية محل التحليل" type="date" value={form.periodStartDate} onChange={set('periodStartDate')} />
+          <Field label="نهاية الفترة المالية محل التحليل" type="date" value={form.periodEndDate} onChange={set('periodEndDate')} />
         </SectionCard>
       )}
 
       {step === 1 && (
-        <SectionCard icon={Wallet} title="قائمة الدخل" subtitle="بنود آخر فترة مالية مكتملة (بالريال السعودي) — الأرباح تُحتسب تلقائيًا" accent={C.ink}>
-          <Field label="الإيرادات الحالية" unit="﷼" value={form.currentRevenue} onChange={set('currentRevenue')} />
-          <Field label="إيرادات الفترة السابقة" unit="﷼" value={form.previousRevenue} onChange={set('previousRevenue')} />
-          <Field label="تكلفة البضاعة المباعة (COGS)" unit="﷼" value={form.cogs} onChange={set('cogs')} />
+        <SectionCard icon={Wallet} title="قائمة الدخل" subtitle="بنود فترة التحليل المحددة أعلاه (بالريال السعودي) — الأرباح تُحتسب تلقائيًا" accent={C.ink}>
+          <Field label="الإيرادات (فترة التحليل الحالية)" unit="﷼" value={form.currentRevenue} onChange={set('currentRevenue')} />
+          <Field label="الإيرادات (نفس الفترة، العام السابق)" unit="﷼" value={form.previousRevenue} onChange={set('previousRevenue')} />
+          <Field label="تكلفة البضاعة المباعة (COGS)" unit="﷼" value={form.cogs} onChange={set('cogs')} hint="التكلفة المباشرة لإنتاج أو شراء ما تم بيعه فعليًا (المواد الخام، الشراء بالجملة) — لا تشمل مصاريف الإدارة أو التسويق." />
           <ComputedField label="إجمالي الربح (محتسب)" value={numericForm.grossProfit} />
-          <Field label="مصاريف بيعية وتسويقية" unit="﷼" value={form.sellingExpenses} onChange={set('sellingExpenses')} />
-          <Field label="مصاريف إدارية وعمومية" unit="﷼" value={form.adminExpenses} onChange={set('adminExpenses')} />
+          <Field label="مصاريف بيعية وتسويقية" unit="﷼" value={form.sellingExpenses} onChange={set('sellingExpenses')} hint="تكاليف الإعلانات، العمولات، رواتب فريق المبيعات، وأي مصروف مرتبط مباشرة ببيع المنتج أو الخدمة." />
+          <Field label="مصاريف إدارية وعمومية" unit="﷼" value={form.adminExpenses} onChange={set('adminExpenses')} hint="رواتب الإدارة، الإيجار، الكهرباء، المصاريف المكتبية — التكاليف الثابتة لتشغيل المنشأة بغض النظر عن حجم المبيعات." />
           <ComputedField label="EBITDA (محتسب)" value={numericForm.ebitda} />
-          <Field label="الإهلاك والاستهلاك" unit="﷼" value={form.depreciationAmortization} onChange={set('depreciationAmortization')} />
+          <Field label="الإهلاك والاستهلاك" unit="﷼" value={form.depreciationAmortization} onChange={set('depreciationAmortization')} hint="القيمة المحاسبية لاستهلاك الأصول الثابتة (معدات، مباني) والأصول غير الملموسة خلال الفترة — ليست مصروفًا نقديًا فعليًا." />
           <ComputedField label="EBIT (محتسب)" value={numericForm.ebit} />
-          <Field label="المصاريف التمويلية (الفوائد)" unit="﷼" value={form.interestExpense} onChange={set('interestExpense')} />
-          <Field label="الزكاة / الضريبة" unit="﷼" value={form.taxExpense} onChange={set('taxExpense')} />
+          <Field label="المصاريف التمويلية (الفوائد)" unit="﷼" value={form.interestExpense} onChange={set('interestExpense')} hint="فوائد القروض والتمويل البنكي المدفوعة خلال الفترة." />
+          <Field label="الزكاة / الضريبة" unit="﷼" value={form.taxExpense} onChange={set('taxExpense')} hint="إجمالي الزكاة الشرعية وضريبة الدخل والقيمة المضافة المستحقة على أرباح الفترة." />
           <ComputedField label="صافي الربح (محتسب)" value={numericForm.netProfit} />
         </SectionCard>
       )}
@@ -1013,11 +1170,11 @@ function IntakeWizard({ onCancel, onSubmit, saving, error, defaultConsultant }) 
         <>
           <SectionCard icon={Wallet} title="الأصول" subtitle="قائمة المركز المالي — جانب الأصول" accent={C.steel}>
             <Field label="النقد وما في حكمه" unit="﷼" value={form.cashAndEquivalents} onChange={set('cashAndEquivalents')} />
-            <Field label="الذمم المدينة" unit="﷼" value={form.accountsReceivable} onChange={set('accountsReceivable')} />
+            <Field label="الذمم المدينة" unit="﷼" value={form.accountsReceivable} onChange={set('accountsReceivable')} hint="المبالغ المستحقة للمنشأة من العملاء مقابل مبيعات آجلة لم تُحصَّل بعد." />
             <Field label="المخزون (آخر الفترة)" unit="﷼" value={form.inventoryValue} onChange={set('inventoryValue')} />
             <Field label="أصول متداولة أخرى" unit="﷼" value={form.otherCurrentAssets} onChange={set('otherCurrentAssets')} />
             <ComputedField label="إجمالي الأصول المتداولة (محتسب)" value={numericForm.currentAssets} />
-            <Field label="الممتلكات والمعدات (صافي)" unit="﷼" value={form.ppeNet} onChange={set('ppeNet')} />
+            <Field label="الممتلكات والمعدات (صافي)" unit="﷼" value={form.ppeNet} onChange={set('ppeNet')} hint="القيمة الدفترية للمباني والمعدات والأصول الثابتة بعد خصم الإهلاك المتراكم." />
             <Field label="أصول غير متداولة أخرى" unit="﷼" value={form.otherNonCurrentAssets} onChange={set('otherNonCurrentAssets')} />
             <ComputedField label="إجمالي الأصول (محتسب)" value={numericForm.totalAssets} />
           </SectionCard>
@@ -1048,18 +1205,22 @@ function IntakeWizard({ onCancel, onSubmit, saving, error, defaultConsultant }) 
       )}
 
       {step === 3 && (
-        <SectionCard icon={Factory} title="البيانات التشغيلية" subtitle="مؤشرات المخزون والعمليات والطاقة الإنتاجية" accent={C.steel}>
+        <SectionCard icon={Factory} title="البيانات التشغيلية" subtitle="مؤشرات المخزون والعمليات والطاقة الإنتاجية والقوى العاملة" accent={C.steel}>
           <Field label="متوسط قيمة المخزون خلال الفترة" unit="﷼" value={form.avgInventoryValue} onChange={set('avgInventoryValue')} />
           <Field label="نسبة التسليم في الوقت المحدد" unit="%" value={form.onTimeFulfillmentPct} onChange={set('onTimeFulfillmentPct')} />
           <Field label="نسبة استغلال الطاقة التشغيلية" unit="%" value={form.capacityUtilizationPct} onChange={set('capacityUtilizationPct')} />
+          <Field label="عدد الموظفين" value={form.employeeCount} onChange={set('employeeCount')} unit="موظف" />
+          <Field label="معدل دوران الموظفين خلال الفترة" unit="%" value={form.employeeTurnoverPct} onChange={set('employeeTurnoverPct')} hint="نسبة الموظفين الذين تركوا العمل (استقالة أو إنهاء خدمة) خلال الفترة من إجمالي عدد الموظفين." />
         </SectionCard>
       )}
 
       {step === 4 && (
-        <SectionCard icon={ShoppingCart} title="البيانات التجارية" subtitle="مؤشرات المبيعات والعملاء" accent={C.brass}>
+        <SectionCard icon={ShoppingCart} title="البيانات التجارية" subtitle="مؤشرات المبيعات والعملاء وولاء العملاء" accent={C.brass}>
           <Field label="معدل الاحتفاظ بالعملاء" unit="%" value={form.retentionRatePct} onChange={set('retentionRatePct')} />
-          <Field label="تكلفة اكتساب العميل (CAC)" unit="﷼" value={form.cac} onChange={set('cac')} />
-          <Field label="متوسط قيمة الصفقة" unit="﷼" value={form.avgDealValue} onChange={set('avgDealValue')} />
+          <Field label="تكلفة اكتساب العميل (CAC)" unit="﷼" value={form.cac} onChange={set('cac')} hint="متوسط ما تنفقه المنشأة (تسويق + مبيعات) للحصول على عميل جديد واحد." />
+          <Field label="متوسط قيمة الصفقة" unit="﷼" value={form.avgDealValue} onChange={set('avgDealValue')} hint="متوسط قيمة الصفقة أو الطلب الواحد للعميل." />
+          <Field label="صافي نقاط الترويج (NPS، من -100 إلى 100)" value={form.npsScore} onChange={set('npsScore')} unit="" hint="من استبيان بسيط: نسبة العملاء الذين قد يوصون بكم لغيرهم مطروحًا منها نسبة غير الراضين. صفر يعني تعادل، وأي رقم موجب يعني ولاء أعلى." />
+          <Field label="معدل تحويل الفرص البيعية إلى صفقات" unit="%" value={form.salesPipelineConversionPct} onChange={set('salesPipelineConversionPct')} hint="من كل 100 عميل محتمل تواصل معكم فريق المبيعات، كم منهم أصبح عميلاً فعليًا؟" />
         </SectionCard>
       )}
 
@@ -1067,8 +1228,10 @@ function IntakeWizard({ onCancel, onSubmit, saving, error, defaultConsultant }) 
         <SectionCard icon={Monitor} title="البيانات الرقمية" subtitle="مؤشرات القنوات الرقمية والتجارة الإلكترونية (اتركها صفرًا إن لم تنطبق)" accent={C.sage}>
           <Field label="معدل التحويل الرقمي" unit="%" value={form.conversionRatePct} onChange={set('conversionRatePct')} />
           <Field label="نسبة التخلي عن سلة الشراء" unit="%" value={form.cartAbandonmentPct} onChange={set('cartAbandonmentPct')} />
-          <Field label="تكلفة الاكتساب الرقمي" unit="﷼" value={form.digitalCac} onChange={set('digitalCac')} />
-          <Field label="القيمة الدائمة للعميل (LTV)" unit="﷼" value={form.ltv} onChange={set('ltv')} />
+          <Field label="تكلفة الاكتساب الرقمي" unit="﷼" value={form.digitalCac} onChange={set('digitalCac')} hint="متوسط تكلفة اكتساب عميل واحد عبر القنوات الرقمية تحديدًا (إعلانات، حملات إلكترونية)." />
+          <Field label="القيمة الدائمة للعميل (LTV)" unit="﷼" value={form.ltv} onChange={set('ltv')} hint="إجمالي ما يُتوقَّع أن ينفقه العميل الواحد لدى منشأتكم طوال فترة تعامله معكم، وليس في عملية شراء واحدة." />
+          <Field label="نمو الزيارات الرقمية مقارنة بالفترة السابقة" unit="%" value={form.digitalTrafficGrowthPct} onChange={set('digitalTrafficGrowthPct')} />
+          <Field label="نسبة الإيرادات الرقمية من إجمالي الإيرادات" unit="%" value={form.digitalRevenueSharePct} onChange={set('digitalRevenueSharePct')} />
           <div style={{ gridColumn: 'span 3' }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={{ fontSize: 13, color: C.steel, fontWeight: 500 }}>ملاحظات إضافية للمستشار</span>
@@ -1214,6 +1377,11 @@ function ReportView({ record, onBack, onDelete }) {
             <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 800, fontSize: 13, letterSpacing: 2, color: C.brass }}>VANTAGE · فانتج للاستشارات</div>
             <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 800, fontSize: 26, color: C.ink, marginTop: 6 }}>تقرير التشخيص والتوصيات</div>
             <div style={{ fontSize: 14, color: C.steel, marginTop: 6 }}>{form.companyName} · {form.businessType} · {form.sector}</div>
+            {(form.periodStartDate || form.periodEndDate) && (
+              <div style={{ display: 'inline-block', marginTop: 10, background: `${C.brass}15`, color: C.brassDeep, fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 20 }}>
+                الفترة محل التحليل: من {form.periodStartDate || '—'} إلى {form.periodEndDate || '—'}
+              </div>
+            )}
           </div>
           <CertSeal score={diagnostics.healthScore} riskBand={diagnostics.riskBand} consultant={form.consultant} certNumber={certNumber} date={date} />
         </div>
@@ -1226,7 +1394,14 @@ function ReportView({ record, onBack, onDelete }) {
               بناءً على البيانات المالية والتشغيلية والتجارية والرقمية المقدَّمة، حصلت <strong>{form.companyName}</strong> على
               مؤشر صحة مؤسسية إجمالي قدره <strong style={{ color: diagnostics.riskBand.color }}>{diagnostics.healthScore} من 100</strong>،
               وهو ما يصنَّف ضمن فئة «<strong style={{ color: diagnostics.riskBand.color }}>{diagnostics.riskBand.label}</strong>».
-              تم رصد <strong>{diagnostics.recommendations.length}</strong> توصية ذات أولوية تتطلب متابعة إدارية،
+              {(() => {
+                const weakest = [...engineList].sort((a, b) => diagnostics.engineScores[a.key] - diagnostics.engineScores[b.key])[0];
+                return weakest ? (
+                  <> أظهر التشخيص متعدد الأبعاد أن الجانب الأكثر تأثرًا حاليًا هو «<strong style={{ color: C.brick }}>{weakest.label}</strong>»
+                  ({Math.round(diagnostics.engineScores[weakest.key])}/100)، دون إغفال بقية الأبعاد الموضحة أدناه.</>
+                ) : null;
+              })()}
+              {' '}تم رصد <strong>{diagnostics.recommendations.length}</strong> توصية ذات أولوية تتطلب متابعة إدارية،
               تفصيلها في قسم التوصيات أدناه. المستشار المسؤول عن اعتماد هذا التقرير: <strong>{form.consultant}</strong>.
             </p>
             {form.notes && (
@@ -1374,7 +1549,7 @@ function ReportView({ record, onBack, onDelete }) {
                 <tbody>
                   {diagnostics.kpis.filter(k => k.engine === meta.key).map(k => (
                     <tr key={k.id} style={{ borderBottom: `1px solid ${C.line}` }}>
-                      <td style={{ padding: '8px 6px', color: C.inkSoft }}>{k.label}</td>
+                      <td style={{ padding: '8px 6px', color: C.inkSoft }}><InfoIcon kpiId={k.id} />{k.label}</td>
                       <td style={{ padding: '8px 6px', fontWeight: 600, color: C.ink, width: 80 }}>{fmtNum(k.value, k.unit)}</td>
                       <td style={{ padding: '8px 6px', width: 80, color: C.steel }}>{k.benchmark !== undefined ? fmtNum(k.benchmark, k.unit) : '—'}</td>
                       <td style={{ padding: '8px 6px', width: 140 }}>
@@ -1470,6 +1645,21 @@ function ReportView({ record, onBack, onDelete }) {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Glossary appendix */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontFamily: "'Noto Kufi Arabic'", fontWeight: 700, fontSize: 16, color: C.ink, marginBottom: 6 }}>ملحق — قاموس المؤشرات</div>
+          <div style={{ fontSize: 11.5, color: C.steel, marginBottom: 14 }}>تعريف وصيغة احتساب كل مؤشر ورد في هذا التقرير</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {diagnostics.kpis.filter(k => KPI_GLOSSARY[k.id]).map(k => (
+              <div key={k.id} style={{ background: C.paper, borderRadius: 10, padding: 12 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 4 }}>{k.label}</div>
+                <div style={{ fontSize: 11.5, color: C.inkSoft, lineHeight: 1.7, marginBottom: 4 }}>{KPI_GLOSSARY[k.id].def}</div>
+                <div style={{ fontSize: 10.5, color: C.steel, fontFamily: 'monospace', direction: 'ltr', textAlign: 'left' }}>{KPI_GLOSSARY[k.id].formula}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Footer sign-off */}
